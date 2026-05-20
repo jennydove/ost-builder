@@ -14,7 +14,9 @@ import {
   upsertLocalSnapshotBySource,
   upsertDraftSnapshot,
   upsertShareSnapshot,
+  listLocalSnapshots,
 } from '@/lib/localSnapshots';
+import { MOZILLA_OST_MARKDOWN, MOZILLA_OST_NAME, MOZILLA_OST_SOURCE_KEY } from '@/lib/mozillaOST';
 import CdnStats from '@/components/analytics/CdnStats';
 import Index from './pages/Index';
 import NotFound from './pages/NotFound';
@@ -22,6 +24,20 @@ import StoredShareOpen from './pages/StoredShareOpen';
 import Library from './pages/Library.tsx';
 
 const queryClient = new QueryClient();
+
+// Seed the Mozilla OST into the library on first load
+function seedMozillaOST() {
+  const existing = listLocalSnapshots();
+  const alreadySeeded = existing.some((s) => s.sourceKey === MOZILLA_OST_SOURCE_KEY);
+  if (!alreadySeeded) {
+    upsertLocalSnapshotBySource(MOZILLA_OST_SOURCE_KEY, 'manual', {
+      name: MOZILLA_OST_NAME,
+      markdown: MOZILLA_OST_MARKDOWN,
+      collapsedIds: [],
+    });
+  }
+}
+seedMozillaOST();
 
 function LibraryAutoSave() {
   const markdown = useOSTStore((state) => state.markdown);
