@@ -9,13 +9,14 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 
-// Don't start dragging when the pointer is on an interactive element
+// Don't start dragging when the pointer is on an interactive element or when panning
 class SmartPointerSensor extends PointerSensor {
   static activators = [
     {
       eventName: 'onPointerDown' as const,
       handler: ({ nativeEvent: event }: { nativeEvent: PointerEvent }) => {
         if (!event.isPrimary || event.button !== 0) return false;
+        if (event.shiftKey) return false; // Allow shift+drag for canvas panning
         let el = event.target as HTMLElement | null;
         while (el) {
           if (['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'A'].includes(el.tagName)) return false;
@@ -61,6 +62,18 @@ export function Canvas() {
   const fitInProgressRef = useRef(false);
 
   const sensors = useSensors(useSensor(SmartPointerSensor, SENSOR_OPTIONS));
+
+  // Prevent Firefox middle-click autoscroll (Firefox activates it in the capture phase
+  // before React's bubble-phase onMouseDown can call preventDefault)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const prevent = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    container.addEventListener('mousedown', prevent, { capture: true });
+    return () => container.removeEventListener('mousedown', prevent, { capture: true });
+  }, []);
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
