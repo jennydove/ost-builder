@@ -27,6 +27,20 @@ async function resolveRole(
   userId: string | null,
   share: Record<string, unknown>,
 ): Promise<ShareRole | null> {
+  // Public: anyone can view without auth
+  if (share.visibility === 'public') {
+    if (!userId) return 'viewer';
+    if (userId === share.owner_id) return 'owner';
+    const { data } = await supabase
+      .from('share_members')
+      .select('role')
+      .eq('share_id', shareId)
+      .eq('user_id', userId)
+      .single();
+    return data ? (data.role as ShareRole) : 'viewer';
+  }
+
+  // Mozilla/private: must be logged in
   if (!userId) return null;
   if (userId === share.owner_id) return 'owner';
 
@@ -38,7 +52,10 @@ async function resolveRole(
     .single();
 
   if (data) return data.role as ShareRole;
-  if (share.visibility === 'public') return 'viewer';
+
+  // Mozilla: any logged-in Mozilla user can view
+  if (share.visibility === 'mozilla') return 'viewer';
+
   return null;
 }
 
