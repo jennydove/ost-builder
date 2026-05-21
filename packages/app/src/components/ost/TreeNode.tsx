@@ -1,9 +1,9 @@
-import { useMemo, useRef, useLayoutEffect, useState } from 'react';
+import { memo, useRef, useLayoutEffect, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { OSTCard, CardType } from '@ost-builder/shared';
+import type { CardType } from '@ost-builder/shared';
 import { useOSTStore } from '@/store/ostStore';
 import { OSTCard as OSTCardComponent } from './OSTCard';
 import { AddCardButton } from './AddCardButton';
@@ -21,28 +21,21 @@ const childTypeMap: Record<CardType, CardType> = {
   experiment: 'experiment', // Can't add children to experiments
 };
 
-export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
-  const {
-    tree,
-    addCard,
-    layoutDirection,
-    experimentLayout,
-    collapsedCardIds,
-    toggleCollapsedCard,
-  } = useOSTStore();
-  const card = tree.cards[cardId];
-  const isCollapsed = collapsedCardIds.includes(cardId);
+export const TreeNode = memo(function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
+  const card = useOSTStore((state) => state.tree.cards[cardId]);
+  const addCard = useOSTStore((state) => state.addCard);
+  const layoutDirection = useOSTStore((state) => state.layoutDirection);
+  const experimentLayout = useOSTStore((state) => state.experimentLayout);
+  const isCollapsed = useOSTStore((state) => state.collapsedCardIds.includes(cardId));
+  const toggleCollapsedCard = useOSTStore((state) => state.toggleCollapsedCard);
   const isHorizontal = layoutDirection === 'horizontal';
+
+  const childIds = card?.children ?? [];
 
   const { setNodeRef, isOver } = useDroppable({
     id: `droppable-${cardId}`,
     data: { cardId, type: card?.type },
   });
-
-  const children = useMemo(() => {
-    if (!card) return [];
-    return card.children.map((id) => tree.cards[id]).filter(Boolean) as OSTCard[];
-  }, [card, tree.cards]);
 
   if (!card) return null;
 
@@ -62,7 +55,7 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
   const [verticalLineStyle, setVerticalLineStyle] = useState<CSSProperties>({});
 
   useLayoutEffect(() => {
-    if (children.length < 2) {
+    if (childIds.length < 2) {
       setLineStyle({});
       setVerticalLineStyle({});
       return;
@@ -114,7 +107,7 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
     if (lastVerticalRef.current) observer.observe(lastVerticalRef.current);
 
     return () => observer.disconnect();
-  }, [children.length, layoutDirection, experimentLayout]);
+  }, [childIds.length, layoutDirection, experimentLayout]);
 
   const handleAddChild = () => {
     addCard(childType, card.id);
@@ -127,7 +120,7 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
         <OSTCardComponent card={card} />
 
         {/* Collapse button */}
-        {children.length > 0 && (
+        {childIds.length > 0 && (
           <button
             onClick={() => toggleCollapsedCard(cardId)}
             className={cn(
@@ -138,7 +131,7 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
             )}
           >
             {isCollapsed ? (
-              <span className="text-xs font-semibold text-muted-foreground">{children.length}</span>
+              <span className="text-xs font-semibold text-muted-foreground">{childIds.length}</span>
             ) : (
               <>
                 {isHorizontal ? (
@@ -154,7 +147,7 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
 
       {/* Connector line and children */}
       <AnimatePresence>
-        {!isCollapsed && (children.length > 0 || canAddChildren) && (
+        {!isCollapsed && (childIds.length > 0 || canAddChildren) && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -180,12 +173,12 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                 )}
 
                 {/* Children container */}
-                {children.length > 0 &&
+                {childIds.length > 0 &&
                   (useHorizontalExperiments ? (
                     <>
                       <div className="relative flex justify-center">
                         <div className="relative inline-flex flex-col items-center px-4">
-                          {children.length > 1 && (
+                          {childIds.length > 1 && (
                             <div
                               className="absolute top-0 h-0.5 bg-connector"
                               style={{
@@ -202,22 +195,22 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                             />
                           )}
                           <div ref={lineContainerRef} className="flex flex-nowrap gap-8 pt-4">
-                            {children.map((child, index) => (
+                            {childIds.map((childId, index) => (
                               <div
-                                key={child.id}
+                                key={childId}
                                 ref={
                                   index === 0
                                     ? firstChildRef
-                                    : index === children.length - 1
+                                    : index === childIds.length - 1
                                       ? lastChildRef
                                       : undefined
                                 }
                                 className="flex flex-col items-center"
                               >
-                                {children.length > 1 && (
+                                {childIds.length > 1 && (
                                   <div className="w-0.5 h-4 bg-connector -mt-4" />
                                 )}
-                                <TreeNode cardId={child.id} depth={depth + 1} />
+                                <TreeNode cardId={childId} depth={depth + 1} />
                               </div>
                             ))}
                           </div>
@@ -226,51 +219,51 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                     </>
                   ) : useVerticalExperiments ? (
                     <div ref={verticalListRef} className="relative flex flex-col gap-6 pl-4">
-                      {children.length > 1 && (
+                      {childIds.length > 1 && (
                         <div
                           className="absolute left-0 w-0.5 bg-connector"
                           style={verticalLineStyle}
                         />
                       )}
-                      {children.map((child, index) => (
+                      {childIds.map((childId, index) => (
                         <div
-                          key={child.id}
+                          key={childId}
                           ref={
                             index === 0
                               ? firstVerticalRef
-                              : index === children.length - 1
+                              : index === childIds.length - 1
                                 ? lastVerticalRef
                                 : undefined
                           }
                           className="flex items-center"
                         >
                           <div className="h-0.5 w-4 bg-connector -ml-4" />
-                          <TreeNode cardId={child.id} depth={depth + 1} />
+                          <TreeNode cardId={childId} depth={depth + 1} />
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div ref={verticalListRef} className="relative flex flex-col gap-8 pl-4">
-                      {children.length > 1 && (
+                      {childIds.length > 1 && (
                         <div
                           className="absolute left-0 w-0.5 bg-connector"
                           style={verticalLineStyle}
                         />
                       )}
-                      {children.map((child, index) => (
+                      {childIds.map((childId, index) => (
                         <div
-                          key={child.id}
+                          key={childId}
                           ref={
                             index === 0
                               ? firstVerticalRef
-                              : index === children.length - 1
+                              : index === childIds.length - 1
                                 ? lastVerticalRef
                                 : undefined
                           }
                           className="flex items-center"
                         >
                           <div className="h-0.5 w-4 bg-connector -ml-4" />
-                          <TreeNode cardId={child.id} depth={depth + 1} />
+                          <TreeNode cardId={childId} depth={depth + 1} />
                         </div>
                       ))}
                     </div>
@@ -295,12 +288,12 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                 )}
 
                 {/* Children container */}
-                {children.length > 0 &&
+                {childIds.length > 0 &&
                   (useHorizontalExperiments ? (
                     <>
                       <div className="relative flex justify-center">
                         <div className="relative inline-flex flex-col items-center px-4">
-                          {children.length > 1 && (
+                          {childIds.length > 1 && (
                             <div
                               className="absolute top-0 h-0.5 bg-connector"
                               style={{
@@ -317,22 +310,22 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                             />
                           )}
                           <div ref={lineContainerRef} className="flex flex-nowrap gap-8 pt-4">
-                            {children.map((child, index) => (
+                            {childIds.map((childId, index) => (
                               <div
-                                key={child.id}
+                                key={childId}
                                 ref={
                                   index === 0
                                     ? firstChildRef
-                                    : index === children.length - 1
+                                    : index === childIds.length - 1
                                       ? lastChildRef
                                       : undefined
                                 }
                                 className="flex flex-col items-center"
                               >
-                                {children.length > 1 && (
+                                {childIds.length > 1 && (
                                   <div className="w-0.5 h-4 bg-connector -mt-4" />
                                 )}
-                                <TreeNode cardId={child.id} depth={depth + 1} />
+                                <TreeNode cardId={childId} depth={depth + 1} />
                               </div>
                             ))}
                           </div>
@@ -341,12 +334,12 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                     </>
                   ) : useVerticalExperiments ? (
                     <div className="relative flex flex-col items-center gap-6 pt-4">
-                      {children.length > 1 && (
+                      {childIds.length > 1 && (
                         <div className="absolute top-4 bottom-4 w-0.5 bg-connector" />
                       )}
-                      {children.map((child) => (
-                        <div key={child.id} className="flex flex-col items-center">
-                          <TreeNode cardId={child.id} depth={depth + 1} />
+                      {childIds.map((childId) => (
+                        <div key={childId} className="flex flex-col items-center">
+                          <TreeNode cardId={childId} depth={depth + 1} />
                         </div>
                       ))}
                     </div>
@@ -355,7 +348,7 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                       {/* Horizontal connector for multiple children */}
                       <div className="relative flex justify-center">
                         <div className="relative inline-flex flex-col items-center px-4">
-                          {children.length > 1 && (
+                          {childIds.length > 1 && (
                             <div
                               className="absolute top-0 h-0.5 bg-connector"
                               style={{
@@ -372,23 +365,23 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
                             />
                           )}
                           <div ref={lineContainerRef} className="flex flex-nowrap gap-8 pt-4">
-                            {children.map((child, index) => (
+                            {childIds.map((childId, index) => (
                               <div
-                                key={child.id}
+                                key={childId}
                                 ref={
                                   index === 0
                                     ? firstChildRef
-                                    : index === children.length - 1
+                                    : index === childIds.length - 1
                                       ? lastChildRef
                                       : undefined
                                 }
                                 className="flex flex-col items-center"
                               >
                                 {/* Vertical connector from horizontal line */}
-                                {children.length > 1 && (
+                                {childIds.length > 1 && (
                                   <div className="w-0.5 h-4 bg-connector -mt-4" />
                                 )}
-                                <TreeNode cardId={child.id} depth={depth + 1} />
+                                <TreeNode cardId={childId} depth={depth + 1} />
                               </div>
                             ))}
                           </div>
@@ -403,4 +396,4 @@ export function TreeNode({ cardId, depth = 0 }: TreeNodeProps) {
       </AnimatePresence>
     </div>
   );
-}
+});

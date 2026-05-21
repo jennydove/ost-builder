@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
@@ -74,7 +75,7 @@ const statusConfig: Record<
   },
 };
 
-export function OSTCard({ card, isDragging }: OSTCardProps) {
+export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps) {
   const {
     selectedCardId,
     selectCard,
@@ -135,8 +136,6 @@ export function OSTCard({ card, isDragging }: OSTCardProps) {
     <motion.div
       ref={setNodeRef}
       style={style}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
       className={cn(
         'w-80 bg-card rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing',
         isSelected ? 'ring-2 ring-primary/50 border-primary/30' : 'border-border',
@@ -178,6 +177,7 @@ export function OSTCard({ card, isDragging }: OSTCardProps) {
               <button
                 className="p-1 rounded-md hover:bg-muted transition-colors"
                 onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
               </button>
@@ -292,4 +292,4 @@ export function OSTCard({ card, isDragging }: OSTCardProps) {
       </div>
     </motion.div>
   );
-}
+});
