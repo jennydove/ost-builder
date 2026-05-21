@@ -44,7 +44,7 @@ import { computeFitView } from '@/lib/fitView';
 export function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const rootIds = useOSTStore((state) => state.rootIds);
+  const rootIds = useOSTStore((state) => state.tree.rootIds);
   const canvasState = useOSTStore((state) => state.canvasState);
   const layoutDirection = useOSTStore((state) => state.layoutDirection);
   const setZoom = useOSTStore((state) => state.setZoom);
