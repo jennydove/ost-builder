@@ -56,22 +56,54 @@ export function Canvas() {
   const selectCard = useOSTStore((state) => state.selectCard);
   const isHorizontal = layoutDirection === 'horizontal';
   const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [activeCard, setActiveCard] = useState<OSTCardType | null>(null);
   const fitInProgressRef = useRef(false);
 
   const sensors = useSensors(useSensor(SmartPointerSensor, SENSOR_OPTIONS));
 
-  // Prevent Firefox middle-click autoscroll (Firefox activates it in the capture phase
-  // before React's bubble-phase onMouseDown can call preventDefault)
+  // Panning via native pointer events in capture phase — this runs before dnd-kit's
+  // onPointerDown on cards (which calls stopPropagation, preventing mouse events from
+  // firing). Using refs avoids React re-render timing issues with isPanning state.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const prevent = (e: MouseEvent) => {
-      if (e.button === 1) e.preventDefault();
+
+    let panStartX = 0;
+    let panStartY = 0;
+
+    const onPointerDown = (e: PointerEvent) => {
+      const isPanGesture = e.button === 1 || (e.button === 0 && e.shiftKey);
+      if (!isPanGesture) return;
+      e.preventDefault();
+      e.stopPropagation(); // prevent dnd-kit from also activating on shift+drag
+      panStartX = e.clientX - useOSTStore.getState().canvasState.offset.x;
+      panStartY = e.clientY - useOSTStore.getState().canvasState.offset.y;
+      container.setPointerCapture(e.pointerId);
+      setIsPanning(true);
     };
-    container.addEventListener('mousedown', prevent, { capture: true });
-    return () => container.removeEventListener('mousedown', prevent, { capture: true });
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!container.hasPointerCapture(e.pointerId)) return;
+      useOSTStore.getState().setOffset(e.clientX - panStartX, e.clientY - panStartY);
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (!container.hasPointerCapture(e.pointerId)) return;
+      container.releasePointerCapture(e.pointerId);
+      setIsPanning(false);
+    };
+
+    container.addEventListener('pointerdown', onPointerDown, { capture: true });
+    container.addEventListener('pointermove', onPointerMove);
+    container.addEventListener('pointerup', onPointerUp);
+    container.addEventListener('pointercancel', onPointerUp);
+
+    return () => {
+      container.removeEventListener('pointerdown', onPointerDown, { capture: true });
+      container.removeEventListener('pointermove', onPointerMove);
+      container.removeEventListener('pointerup', onPointerUp);
+      container.removeEventListener('pointercancel', onPointerUp);
+    };
   }, []);
 
   const handleWheel = useCallback(
@@ -88,31 +120,6 @@ export function Canvas() {
     },
     [setZoom, setOffset],
   );
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
-        e.preventDefault();
-        setIsPanning(true);
-        const { canvasState } = useOSTStore.getState();
-        setPanStart({ x: e.clientX - canvasState.offset.x, y: e.clientY - canvasState.offset.y });
-      }
-    },
-    [],
-  );
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (isPanning) {
-        setOffset(e.clientX - panStart.x, e.clientY - panStart.y);
-      }
-    },
-    [isPanning, panStart, setOffset],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsPanning(false);
-  }, []);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
@@ -191,10 +198,6 @@ export function Canvas() {
       )}
       data-ost-export
       onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
       onClick={handleCanvasClick}
     >
       {/* Zoom controls */}
