@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CloudUpload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOSTStore } from '@/store/ostStore';
@@ -26,14 +26,6 @@ import {
   updateLocalSnapshot,
 } from '@/lib/localSnapshots';
 
-const CLOUD_SHARE_UI_TOGGLE_KEY = 'ost:feature:cloud-share';
-
-function isCloudShareUiEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
-  const raw = (window.localStorage.getItem(CLOUD_SHARE_UI_TOGGLE_KEY) || '').toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'enabled' || raw === 'on';
-}
-
 function resolveCloudId(sourceKey: string | null, linkedCloudId?: string): string | null {
   if (linkedCloudId) return linkedCloudId;
   if (sourceKey?.startsWith('cloud:')) return sourceKey.slice('cloud:'.length);
@@ -43,17 +35,13 @@ function resolveCloudId(sourceKey: string | null, linkedCloudId?: string): strin
 export function CloudShareAction() {
   const { getSharePayload } = useOSTStore();
   const [featureEnabled, setFeatureEnabled] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [ttlDays, setTtlDays] = useState<1 | 7 | 30 | 90>(30);
 
-  const show = useMemo(
-    () => isCloudShareUiEnabled() && featureEnabled && loggedIn,
-    [featureEnabled, loggedIn],
-  );
+  const show = featureEnabled;
 
   useEffect(() => {
     let active = true;
@@ -63,11 +51,9 @@ export function CloudShareAction() {
         const auth = await getAuthMe();
         if (!active) return;
         setFeatureEnabled(auth.featureEnabled);
-        setLoggedIn(!!auth.user);
       } catch {
         if (!active) return;
         setFeatureEnabled(false);
-        setLoggedIn(false);
       } finally {
         if (active) setLoading(false);
       }
