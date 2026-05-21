@@ -53,7 +53,7 @@ const STATUS_MAP: Record<string, CardStatus> = {
   deprioritized: 'deprioritized',
   ideating: 'ideating',
   testing: 'testing',
-  killed: 'killed',
+  dropped: 'dropped',
   planned: 'planned',
   running: 'running',
   complete: 'complete',
@@ -106,7 +106,7 @@ function parseCardHeading(
 
   // Extract status if present
   let status: CardStatus = 'none';
-  const statusMatch = remaining.match(/@(on-track|at-risk|achieved|exploring|validated|prioritized|deprioritized|ideating|testing|killed|planned|running|complete|none)$/i);
+  const statusMatch = remaining.match(/@(on-track|at-risk|achieved|exploring|validated|prioritized|deprioritized|ideating|testing|dropped|planned|running|complete|none)$/i);
   if (statusMatch) {
     status = STATUS_MAP[statusMatch[1].toLowerCase()] || 'none';
     remaining = remaining.replace(statusMatch[0], '').trim();

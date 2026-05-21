@@ -27,7 +27,7 @@ const typeIcons: Record<CardType, React.ReactNode> = {
 const statusOptionsByType: Record<CardType, { value: CardStatus; label: string }[]> = {
   outcome:     [{ value: 'on-track', label: 'On Track' }, { value: 'at-risk', label: 'At Risk' }, { value: 'achieved', label: 'Achieved' }],
   opportunity: [{ value: 'exploring', label: 'Exploring' }, { value: 'validated', label: 'Validated' }, { value: 'prioritized', label: 'Prioritized' }, { value: 'deprioritized', label: 'Deprioritized' }],
-  solution:    [{ value: 'ideating', label: 'Ideating' }, { value: 'testing', label: 'Testing' }, { value: 'validated', label: 'Validated' }, { value: 'killed', label: 'Killed' }],
+  solution:    [{ value: 'ideating', label: 'Ideating' }, { value: 'testing', label: 'Testing' }, { value: 'validated', label: 'Validated' }, { value: 'dropped', label: 'Dropped' }],
   experiment:  [{ value: 'planned', label: 'Planned' }, { value: 'running', label: 'Running' }, { value: 'complete', label: 'Complete' }],
 };
 

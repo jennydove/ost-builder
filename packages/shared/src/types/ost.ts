@@ -6,7 +6,7 @@ export type CardStatus =
   // opportunity
   | 'exploring' | 'validated' | 'prioritized' | 'deprioritized'
   // solution
-  | 'ideating' | 'testing' | 'killed'
+  | 'ideating' | 'testing' | 'dropped'
   // experiment
   | 'planned' | 'running' | 'complete'
   | 'none';

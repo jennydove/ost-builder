@@ -64,7 +64,7 @@ export const OST_GUIDANCE: Record<GuidanceType, Record<GuidanceField, GuidanceCo
     },
     status: {
       title: 'Where is this solution in the hypothesis lifecycle?',
-      description: 'Ideating (early concept), Testing (experiment underway), Validated (assumption confirmed), or Killed (ruled out).',
+      description: 'Ideating (early concept), Testing (experiment underway), Validated (assumption confirmed), or Dropped (ruled out).',
     },
     metrics: {
       title: 'What metrics will show this solution worked?',

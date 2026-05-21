@@ -63,7 +63,7 @@ const statusConfig: Record<
   // solution
   ideating:        { label: 'Ideating',       icon: <Lightbulb className="w-3 h-3" />,   className: 'text-status-next' },
   testing:         { label: 'Testing',        icon: <Beaker className="w-3 h-3" />,      className: 'text-status-warning' },
-  killed:          { label: 'Killed',         icon: <XCircle className="w-3 h-3" />,     className: 'text-muted-foreground' },
+  dropped:         { label: 'Dropped',        icon: <XCircle className="w-3 h-3" />,     className: 'text-muted-foreground' },
   // experiment
   planned:         { label: 'Planned',        icon: <Clock className="w-3 h-3" />,       className: 'text-status-next' },
   running:         { label: 'Running',        icon: <Play className="w-3 h-3" />,        className: 'text-primary' },
@@ -74,7 +74,7 @@ const statusConfig: Record<
 const statusByType: Record<CardType, { value: CardStatus; label: string }[]> = {
   outcome:     [{ value: 'on-track', label: 'On Track' }, { value: 'at-risk', label: 'At Risk' }, { value: 'achieved', label: 'Achieved' }],
   opportunity: [{ value: 'exploring', label: 'Exploring' }, { value: 'validated', label: 'Validated' }, { value: 'prioritized', label: 'Prioritized' }, { value: 'deprioritized', label: 'Deprioritized' }],
-  solution:    [{ value: 'ideating', label: 'Ideating' }, { value: 'testing', label: 'Testing' }, { value: 'validated', label: 'Validated' }, { value: 'killed', label: 'Killed' }],
+  solution:    [{ value: 'ideating', label: 'Ideating' }, { value: 'testing', label: 'Testing' }, { value: 'validated', label: 'Validated' }, { value: 'dropped', label: 'Dropped' }],
   experiment:  [{ value: 'planned', label: 'Planned' }, { value: 'running', label: 'Running' }, { value: 'complete', label: 'Complete' }],
 };
 
