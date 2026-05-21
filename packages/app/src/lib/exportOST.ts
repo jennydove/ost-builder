@@ -1,4 +1,3 @@
-import { toPng } from 'html-to-image';
 import { computeFitView } from '@/lib/fitView';
 
 type ExportBackground = 'grid' | 'transparent';
@@ -122,6 +121,7 @@ export async function exportOSTToPng({
     }
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
+    const { toPng } = await import('html-to-image');
     const dataUrl = await toPng(source, {
       cacheBust: true,
       pixelRatio: 2,

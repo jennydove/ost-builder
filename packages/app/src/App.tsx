@@ -1,9 +1,8 @@
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, lazy, Suspense } from 'react';
 import { useOSTStore } from '@/store/ostStore';
 import { decodeMarkdownFromUrlFragment } from '@ost-builder/shared';
 import {
@@ -14,28 +13,22 @@ import {
   upsertLocalSnapshotBySource,
   upsertDraftSnapshot,
   upsertShareSnapshot,
-  listLocalSnapshots,
 } from '@/lib/localSnapshots';
 import { MOZILLA_OST_MARKDOWN, MOZILLA_OST_NAME, MOZILLA_OST_SOURCE_KEY } from '@/lib/mozillaOST';
 import CdnStats from '@/components/analytics/CdnStats';
 import Index from './pages/Index';
 import NotFound from './pages/NotFound';
-import StoredShareOpen from './pages/StoredShareOpen';
-import Library from './pages/Library.tsx';
 
-const queryClient = new QueryClient();
+const StoredShareOpen = lazy(() => import('./pages/StoredShareOpen'));
+const Library = lazy(() => import('./pages/Library'));
 
-// Seed the Mozilla OST into the library on first load
+// Seed the Mozilla OST into the library, always keeping it current
 function seedMozillaOST() {
-  const existing = listLocalSnapshots();
-  const alreadySeeded = existing.some((s) => s.sourceKey === MOZILLA_OST_SOURCE_KEY);
-  if (!alreadySeeded) {
-    upsertLocalSnapshotBySource(MOZILLA_OST_SOURCE_KEY, 'manual', {
-      name: MOZILLA_OST_NAME,
-      markdown: MOZILLA_OST_MARKDOWN,
-      collapsedIds: [],
-    });
-  }
+  upsertLocalSnapshotBySource(MOZILLA_OST_SOURCE_KEY, 'manual', {
+    name: MOZILLA_OST_NAME,
+    markdown: MOZILLA_OST_MARKDOWN,
+    collapsedIds: [],
+  });
 }
 seedMozillaOST();
 
@@ -120,14 +113,14 @@ function ShareLinkLoader() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <CdnStats />
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <LibraryAutoSave />
-        <ShareLinkLoader />
+  <TooltipProvider>
+    <CdnStats />
+    <Toaster />
+    <Sonner />
+    <BrowserRouter>
+      <LibraryAutoSave />
+      <ShareLinkLoader />
+      <Suspense>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/s/:id" element={<StoredShareOpen />} />
@@ -135,9 +128,9 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+      </Suspense>
+    </BrowserRouter>
+  </TooltipProvider>
 );
 
 export default App;
