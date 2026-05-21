@@ -1,3 +1,8 @@
+# Secrets — never commit
+.env
+.env.local
+.env*.local
+
 # Node
 node_modules
 dist
@@ -16,3 +21,9 @@ coverage
 .agents
 .vite
 .ost-library.json
+
+# Netlify local state
+.netlify/
+
+# Test results
+test-results/

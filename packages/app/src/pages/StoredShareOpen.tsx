@@ -45,7 +45,7 @@ export default function StoredShareOpen() {
           status?: number;
           payload?: { reason?: string; login?: { github?: string } };
         };
-        if (err.status === 401) {
+        if (err.status === 401 || err.status === 403) {
           setState({ kind: 'auth-required' });
           return;
         }
@@ -80,16 +80,21 @@ export default function StoredShareOpen() {
         {state.kind === 'auth-required' && (
           <>
             <p className="text-sm text-muted-foreground">
-              This share is private. Sign in as the owner to view it.
+              Sign in with your Mozilla Google account to view this share.
             </p>
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                onClick={() =>
-                  (window.location.href = `/api/auth/login?provider=github&returnTo=${encodeURIComponent(`/s/${id}`)}`)
-                }
+                onClick={() => {
+                  void import('@/lib/supabaseClient').then(({ supabase }) =>
+                    supabase.auth.signInWithOAuth({
+                      provider: 'google',
+                      options: { redirectTo: `${window.location.origin}/s/${id}` },
+                    })
+                  );
+                }}
               >
-                Continue with GitHub
+                Sign in with Google
               </Button>
             </div>
           </>

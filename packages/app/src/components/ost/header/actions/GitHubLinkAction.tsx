@@ -2,7 +2,7 @@ import { Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-const GITHUB_URL = 'https://github.com/thim81/ost-builder';
+const GITHUB_URL = 'https://github.com/jennydove/ost-builder';
 
 export function GitHubLinkAction() {
   return (

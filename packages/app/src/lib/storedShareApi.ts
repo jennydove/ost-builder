@@ -1,4 +1,5 @@
 import type { ShareSettings } from '@ost-builder/shared';
+import { supabase, supabaseConfigured } from './supabaseClient';
 
 export type AuthUser = {
   sub: string;
@@ -45,9 +46,19 @@ export type StoredSharePayload = {
 };
 
 async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
+  let token: string | undefined;
+  if (supabaseConfigured) {
+    const { data: { session } } = await supabase.auth.getSession();
+    token = session?.access_token;
+  }
+
   const res = await fetch(input, {
     credentials: 'include',
     ...init,
+    headers: {
+      ...(init?.headers as Record<string, string> | undefined),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
 
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;

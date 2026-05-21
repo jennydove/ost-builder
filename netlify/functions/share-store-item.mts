@@ -1,46 +1,117 @@
 import type { Config } from '@netlify/functions';
-import { getStore } from '@netlify/blobs';
+import { createClient } from '@supabase/supabase-js';
+
+type ShareRole = 'owner' | 'editor' | 'viewer';
+
+function getSupabase() {
+  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
+
+function rowToPayload(row: Record<string, unknown>, role: ShareRole) {
+  return {
+    id: row.id,
+    name: row.name ?? null,
+    markdown: row.markdown,
+    visibility: row.visibility,
+    settings: row.settings ?? null,
+    collapsedIds: (row.collapsed_ids as string[] | null) ?? [],
+    createdAt: new Date(row.created_at as string).getTime(),
+    updatedAt: new Date(row.updated_at as string).getTime(),
+    role,
+  };
+}
+
+async function resolveRole(
+  supabase: ReturnType<typeof getSupabase>,
+  shareId: string,
+  userId: string | null,
+  share: Record<string, unknown>,
+): Promise<ShareRole | null> {
+  if (!userId) return null;
+  if (userId === share.owner_id) return 'owner';
+
+  const { data } = await supabase
+    .from('share_members')
+    .select('role')
+    .eq('share_id', shareId)
+    .eq('user_id', userId)
+    .single();
+
+  if (data) return data.role as ShareRole;
+  if (share.visibility === 'public') return 'viewer';
+  return null;
+}
 
 export default async (request: Request) => {
-  const store = getStore('shares');
   const id = new URL(request.url).pathname.split('/').pop() ?? '';
+  if (!id) return Response.json({ error: 'Missing id' }, { status: 400 });
 
-  if (!id) {
-    return Response.json({ error: 'Missing id' }, { status: 400 });
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+  const supabase = getSupabase();
+
+  // Resolve user from token (optional for GET)
+  let userId: string | null = null;
+  if (token) {
+    const { data: { user } } = await supabase.auth.getUser(token);
+    userId = user?.id ?? null;
   }
 
-  // GET /api/share/store/:id — retrieve a share
+  // Fetch share
+  const { data: share, error: fetchError } = await supabase
+    .from('shares')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError?.code === 'PGRST116' || !share) {
+    return Response.json({ error: 'Not found', reason: 'not_found' }, { status: 404 });
+  }
+  if (fetchError) return Response.json({ error: fetchError.message }, { status: 500 });
+
+  const role = await resolveRole(supabase, id, userId, share as Record<string, unknown>);
+
   if (request.method === 'GET') {
-    const share = await store.getJSON(id).catch(() => null);
-    if (!share) {
-      return Response.json({ error: 'Not found', reason: 'not_found' }, { status: 404 });
-    }
-    return Response.json(share);
+    if (!role) return Response.json({ error: 'Sign in to view this share', reason: 'auth_required' }, { status: 401 });
+    return Response.json(rowToPayload(share as Record<string, unknown>, role));
   }
 
-  // PATCH /api/share/store/:id — update a share
+  // All write operations require auth and at least editor role
+  if (!userId) return Response.json({ error: 'Authentication required' }, { status: 401 });
+  if (!role || role === 'viewer') return Response.json({ error: 'Forbidden' }, { status: 403 });
+
   if (request.method === 'PATCH') {
-    const existing = await store.getJSON(id).catch(() => null) as Record<string, unknown> | null;
-    if (!existing) {
-      return Response.json({ error: 'Not found' }, { status: 404 });
+    const text = await request.text();
+    const body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if ('markdown' in body) updates.markdown = body.markdown;
+    if ('name' in body) updates.name = body.name;
+    if ('settings' in body) updates.settings = body.settings;
+    if ('collapsedIds' in body) updates.collapsed_ids = body.collapsedIds;
+    // Only owner can change visibility
+    if ('visibility' in body) {
+      if (role !== 'owner') return Response.json({ error: 'Only the owner can change visibility' }, { status: 403 });
+      updates.visibility = body.visibility;
     }
-    const body = await request.json().catch(() => ({}));
-    const updated = {
-      ...existing,
-      ...('markdown' in body ? { markdown: body.markdown } : {}),
-      ...('name' in body ? { name: body.name } : {}),
-      ...('visibility' in body ? { visibility: body.visibility } : {}),
-      ...('settings' in body ? { settings: body.settings } : {}),
-      ...('collapsedIds' in body ? { collapsedIds: body.collapsedIds } : {}),
-      updatedAt: Date.now(),
-    };
-    await store.setJSON(id, updated);
-    return Response.json({ id, visibility: updated.visibility, updatedAt: updated.updatedAt });
+
+    const { data, error } = await supabase
+      .from('shares')
+      .update(updates)
+      .eq('id', id)
+      .select('id, visibility, updated_at')
+      .single();
+
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({
+      id: data.id,
+      visibility: data.visibility,
+      updatedAt: new Date(data.updated_at as string).getTime(),
+    });
   }
 
-  // DELETE /api/share/store/:id
   if (request.method === 'DELETE') {
-    await store.delete(id).catch(() => null);
+    if (role !== 'owner') return Response.json({ error: 'Only the owner can delete' }, { status: 403 });
+    await supabase.from('shares').delete().eq('id', id);
     return new Response(null, { status: 204 });
   }
 
