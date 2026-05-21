@@ -24,6 +24,13 @@ const typeIcons: Record<CardType, React.ReactNode> = {
   experiment: <Beaker className="w-4 h-4" />,
 };
 
+const statusOptionsByType: Record<CardType, { value: CardStatus; label: string }[]> = {
+  outcome:     [{ value: 'on-track', label: 'On Track' }, { value: 'at-risk', label: 'At Risk' }, { value: 'achieved', label: 'Achieved' }],
+  opportunity: [{ value: 'exploring', label: 'Exploring' }, { value: 'validated', label: 'Validated' }, { value: 'prioritized', label: 'Prioritized' }, { value: 'deprioritized', label: 'Deprioritized' }],
+  solution:    [{ value: 'ideating', label: 'Ideating' }, { value: 'testing', label: 'Testing' }, { value: 'validated', label: 'Validated' }, { value: 'killed', label: 'Killed' }],
+  experiment:  [{ value: 'planned', label: 'Planned' }, { value: 'running', label: 'Running' }, { value: 'complete', label: 'Complete' }],
+};
+
 const typeColors: Record<CardType, string> = {
   outcome: 'text-outcome',
   opportunity: 'text-opportunity',
@@ -156,15 +163,14 @@ export function Sidebar() {
               value={card.status || 'none'}
               onValueChange={(value) => updateCard(card.id, { status: value as CardStatus })}
             >
-              <SelectTrigger>
+              <SelectTrigger data-testid="sidebar-status-trigger">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No status</SelectItem>
-                <SelectItem value="on-track">On Track</SelectItem>
-                <SelectItem value="next">Next</SelectItem>
-                <SelectItem value="at-risk">At Risk</SelectItem>
-                <SelectItem value="done">Done</SelectItem>
+                {statusOptionsByType[card.type].map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

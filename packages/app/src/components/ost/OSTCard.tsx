@@ -2,7 +2,10 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { MoreHorizontal, Check, Clock, Target, AlertCircle, Copy, Trash2 } from 'lucide-react';
+import {
+  MoreHorizontal, Check, CheckCheck, Clock, Target, AlertCircle,
+  TrendingUp, Search, Minus, Lightbulb, Beaker, XCircle, Play, Copy, Trash2,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { renderMarkdownLinks } from '@/lib/markdownLinks';
 import type { OSTCard as OSTCardType, CardType, CardStatus } from '@ost-builder/shared';
@@ -48,31 +51,31 @@ const statusConfig: Record<
   CardStatus,
   { label: string; icon: React.ReactNode; className: string }
 > = {
-  'on-track': {
-    label: 'On Track',
-    icon: <Check className="w-3 h-3" />,
-    className: 'text-status-success',
-  },
-  'at-risk': {
-    label: 'At Risk',
-    icon: <AlertCircle className="w-3 h-3" />,
-    className: 'text-status-warning',
-  },
-  next: {
-    label: 'Next',
-    icon: <Clock className="w-3 h-3" />,
-    className: 'text-status-next',
-  },
-  done: {
-    label: 'Done',
-    icon: <Check className="w-3 h-3" />,
-    className: 'text-status-success',
-  },
-  none: {
-    label: '',
-    icon: null,
-    className: '',
-  },
+  // outcome
+  'on-track':      { label: 'On Track',      icon: <TrendingUp className="w-3 h-3" />,  className: 'text-status-success' },
+  'at-risk':       { label: 'At Risk',        icon: <AlertCircle className="w-3 h-3" />, className: 'text-status-warning' },
+  achieved:        { label: 'Achieved',       icon: <CheckCheck className="w-3 h-3" />,  className: 'text-status-success' },
+  // opportunity
+  exploring:       { label: 'Exploring',      icon: <Search className="w-3 h-3" />,      className: 'text-status-next' },
+  validated:       { label: 'Validated',      icon: <Check className="w-3 h-3" />,       className: 'text-status-success' },
+  prioritized:     { label: 'Prioritized',    icon: <Target className="w-3 h-3" />,      className: 'text-primary' },
+  deprioritized:   { label: 'Deprioritized',  icon: <Minus className="w-3 h-3" />,       className: 'text-muted-foreground' },
+  // solution
+  ideating:        { label: 'Ideating',       icon: <Lightbulb className="w-3 h-3" />,   className: 'text-status-next' },
+  testing:         { label: 'Testing',        icon: <Beaker className="w-3 h-3" />,      className: 'text-status-warning' },
+  killed:          { label: 'Killed',         icon: <XCircle className="w-3 h-3" />,     className: 'text-muted-foreground' },
+  // experiment
+  planned:         { label: 'Planned',        icon: <Clock className="w-3 h-3" />,       className: 'text-status-next' },
+  running:         { label: 'Running',        icon: <Play className="w-3 h-3" />,        className: 'text-primary' },
+  complete:        { label: 'Complete',       icon: <Check className="w-3 h-3" />,       className: 'text-status-success' },
+  none:            { label: '',               icon: null,                                  className: '' },
+};
+
+const statusByType: Record<CardType, { value: CardStatus; label: string }[]> = {
+  outcome:     [{ value: 'on-track', label: 'On Track' }, { value: 'at-risk', label: 'At Risk' }, { value: 'achieved', label: 'Achieved' }],
+  opportunity: [{ value: 'exploring', label: 'Exploring' }, { value: 'validated', label: 'Validated' }, { value: 'prioritized', label: 'Prioritized' }, { value: 'deprioritized', label: 'Deprioritized' }],
+  solution:    [{ value: 'ideating', label: 'Ideating' }, { value: 'testing', label: 'Testing' }, { value: 'validated', label: 'Validated' }, { value: 'killed', label: 'Killed' }],
+  experiment:  [{ value: 'planned', label: 'Planned' }, { value: 'running', label: 'Running' }, { value: 'complete', label: 'Complete' }],
 };
 
 export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps) {
@@ -187,15 +190,16 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
                 Edit title
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => updateCard(card.id, { status: 'on-track' })}>
-                Set On Track
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateCard(card.id, { status: 'next' })}>
-                Set Next
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateCard(card.id, { status: 'at-risk' })}>
-                Set At Risk
-              </DropdownMenuItem>
+              {statusByType[card.type].map(({ value, label }) => (
+                <DropdownMenuItem key={value} onClick={() => updateCard(card.id, { status: value })}>
+                  Set {label}
+                </DropdownMenuItem>
+              ))}
+              {card.status && card.status !== 'none' && (
+                <DropdownMenuItem onClick={() => updateCard(card.id, { status: 'none' })}>
+                  Clear status
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => copyCard(card.id)}>
                 <span className="mr-2 inline-flex h-4 w-4 items-center justify-center">

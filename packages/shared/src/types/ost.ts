@@ -1,6 +1,15 @@
 export type CardType = 'outcome' | 'opportunity' | 'solution' | 'experiment';
 
-export type CardStatus = 'on-track' | 'at-risk' | 'next' | 'done' | 'none';
+export type CardStatus =
+  // outcome
+  | 'on-track' | 'at-risk' | 'achieved'
+  // opportunity
+  | 'exploring' | 'validated' | 'prioritized' | 'deprioritized'
+  // solution
+  | 'ideating' | 'testing' | 'killed'
+  // experiment
+  | 'planned' | 'running' | 'complete'
+  | 'none';
 
 export type LayoutDirection = 'vertical' | 'horizontal';
 

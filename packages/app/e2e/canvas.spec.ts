@@ -10,6 +10,7 @@
  *   5. Middle-click drag pans the canvas
  *   6. Left-click drag on canvas background pans
  *   7. Left-click drag on a card does NOT pan (dnd-kit should handle it)
+ *   8. Sidebar status dropdown opens and saves (z-index fix guard)
  */
 
 import { test, expect } from '@playwright/test';
@@ -87,6 +88,28 @@ test.describe('Canvas interactions', () => {
 
     const after = await content.evaluate((el) => (el as HTMLElement).style.transform);
     expect(after).not.toBe(before);
+  });
+
+  // ── 8. Sidebar status dropdown ──────────────────────────────────────────
+  test('sidebar status dropdown opens and saves a value', async ({ page }) => {
+    // Click first card to open the sidebar
+    await page.locator('[data-ost-card]').first().click();
+    await page.waitForSelector('[data-testid="sidebar-status-trigger"]', { timeout: 5_000 });
+
+    // Open the status select — this is the z-index regression guard
+    await page.getByTestId('sidebar-status-trigger').click();
+
+    // At least one non-"No status" option must be visible (SelectContent rendered above sidebar)
+    const options = page.getByRole('option');
+    await expect(options.first()).toBeVisible();
+
+    // Select the second option (first type-specific status, not "No status")
+    await options.nth(1).click();
+
+    // The trigger should now show a non-placeholder value
+    const triggerText = await page.getByTestId('sidebar-status-trigger').textContent();
+    expect(triggerText?.trim()).not.toBe('');
+    expect(triggerText?.trim()).not.toBe('Select status');
   });
 
   // ── 7. Card drag does NOT pan ─────────────────────────────────────────────

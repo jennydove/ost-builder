@@ -46,8 +46,17 @@ const LEVEL_TYPES: Record<number, CardType> = {
 const STATUS_MAP: Record<string, CardStatus> = {
   'on-track': 'on-track',
   'at-risk': 'at-risk',
-  next: 'next',
-  done: 'done',
+  achieved: 'achieved',
+  exploring: 'exploring',
+  validated: 'validated',
+  prioritized: 'prioritized',
+  deprioritized: 'deprioritized',
+  ideating: 'ideating',
+  testing: 'testing',
+  killed: 'killed',
+  planned: 'planned',
+  running: 'running',
+  complete: 'complete',
   none: 'none',
 };
 
@@ -97,7 +106,7 @@ function parseCardHeading(
 
   // Extract status if present
   let status: CardStatus = 'none';
-  const statusMatch = remaining.match(/@(on-track|at-risk|next|done|none)$/i);
+  const statusMatch = remaining.match(/@(on-track|at-risk|achieved|exploring|validated|prioritized|deprioritized|ideating|testing|killed|planned|running|complete|none)$/i);
   if (statusMatch) {
     status = STATUS_MAP[statusMatch[1].toLowerCase()] || 'none';
     remaining = remaining.replace(statusMatch[0], '').trim();

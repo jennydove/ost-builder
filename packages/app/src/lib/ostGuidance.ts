@@ -20,9 +20,8 @@ export const OST_GUIDANCE: Record<GuidanceType, Record<GuidanceField, GuidanceCo
       source: 'Teresa Torres',
     },
     status: {
-      title: 'What is the current state of this outcome?',
-      description: 'Use status to communicate progress or risk at a glance.',
-      source: 'Hustle Badger',
+      title: 'Is this outcome moving in the right direction?',
+      description: 'On Track, At Risk, or Achieved — reflects whether the metric is progressing as expected.',
     },
     metrics: {
       title: 'How will we measure progress toward this outcome?',
@@ -43,9 +42,8 @@ export const OST_GUIDANCE: Record<GuidanceType, Record<GuidanceField, GuidanceCo
       source: 'Hustle Badger',
     },
     status: {
-      title: 'What is the current state of this opportunity?',
-      description: 'Use status to reflect confidence or urgency.',
-      source: 'Hustle Badger',
+      title: 'Where is this opportunity in the discovery process?',
+      description: 'Exploring (gathering evidence), Validated (confirmed real need), Prioritized (selected to act on), or Deprioritized.',
     },
     metrics: {
       title: 'How will we validate this opportunity?',
@@ -65,9 +63,8 @@ export const OST_GUIDANCE: Record<GuidanceType, Record<GuidanceField, GuidanceCo
       source: 'Hustle Badger',
     },
     status: {
-      title: 'What is the current state of this solution?',
-      description: 'Track whether it’s next, at risk, or done.',
-      source: 'Hustle Badger',
+      title: 'Where is this solution in the hypothesis lifecycle?',
+      description: 'Ideating (early concept), Testing (experiment underway), Validated (assumption confirmed), or Killed (ruled out).',
     },
     metrics: {
       title: 'What metrics will show this solution worked?',
@@ -78,7 +75,7 @@ export const OST_GUIDANCE: Record<GuidanceType, Record<GuidanceField, GuidanceCo
   assumption: {
     title: {
       title: 'What must be true for this solution to work?',
-      description: 'Assumptions are risks. If it’s wrong, the solution fails.',
+      description: 'Assumptions are risks. If this is wrong, the solution fails.',
       source: 'Teresa Torres',
     },
     description: {
@@ -87,9 +84,8 @@ export const OST_GUIDANCE: Record<GuidanceType, Record<GuidanceField, GuidanceCo
       source: 'Hustle Badger',
     },
     status: {
-      title: 'What is the current state of this assumption?',
-      description: 'Use status to track validation progress.',
-      source: 'Hustle Badger',
+      title: 'Where is this assumption in the validation process?',
+      description: 'Planned (not yet tested), Running (test underway), or Complete (learning captured).',
     },
     metrics: {
       title: 'What evidence would validate this assumption?',
@@ -109,9 +105,8 @@ export const OST_GUIDANCE: Record<GuidanceType, Record<GuidanceField, GuidanceCo
       source: 'Hustle Badger',
     },
     status: {
-      title: 'What is the current state of this experiment?',
-      description: 'Use status to track whether it’s planned, running, or done.',
-      source: 'Hustle Badger',
+      title: 'Where is this experiment in its lifecycle?',
+      description: 'Planned (designed, not started), Running (actively collecting data), or Complete (results in hand).',
     },
     metrics: {
       title: 'What metric decides the experiment?',
