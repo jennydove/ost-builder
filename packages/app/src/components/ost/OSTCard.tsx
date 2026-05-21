@@ -76,17 +76,17 @@ const statusConfig: Record<
 };
 
 export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps) {
-  const {
-    selectedCardId,
-    selectCard,
-    editingCardId,
-    setEditingCard,
-    updateCard,
-    deleteCard,
-    copyCard,
-    copyCardWithChildren,
-    viewDensity,
-  } = useOSTStore();
+  // Selective subscriptions — only re-render when THIS card's state changes
+  const isSelected = useOSTStore((state) => state.selectedCardId === card.id);
+  const isEditing = useOSTStore((state) => state.editingCardId === card.id);
+  const viewDensity = useOSTStore((state) => state.viewDensity);
+  // Actions are stable Zustand references — subscribing to them never triggers re-renders
+  const selectCard = useOSTStore((state) => state.selectCard);
+  const setEditingCard = useOSTStore((state) => state.setEditingCard);
+  const updateCard = useOSTStore((state) => state.updateCard);
+  const deleteCard = useOSTStore((state) => state.deleteCard);
+  const copyCard = useOSTStore((state) => state.copyCard);
+  const copyCardWithChildren = useOSTStore((state) => state.copyCardWithChildren);
   const [editTitle, setEditTitle] = useState(card.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -95,8 +95,6 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
     data: { card },
   });
 
-  const isSelected = selectedCardId === card.id;
-  const isEditing = editingCardId === card.id;
   const config = cardTypeConfig[card.type];
   const status = card.status ? statusConfig[card.status] : statusConfig.none;
 

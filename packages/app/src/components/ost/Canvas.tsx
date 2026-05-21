@@ -8,6 +8,24 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
+
+// Don't start dragging when the pointer is on an interactive element
+class SmartPointerSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: 'onPointerDown' as const,
+      handler: ({ nativeEvent: event }: { nativeEvent: PointerEvent }) => {
+        if (!event.isPrimary || event.button !== 0) return false;
+        let el = event.target as HTMLElement | null;
+        while (el) {
+          if (['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'A'].includes(el.tagName)) return false;
+          el = el.parentElement;
+        }
+        return true;
+      },
+    },
+  ];
+}
 import { motion } from 'framer-motion';
 import { ZoomIn, ZoomOut, RotateCcw, Maximize2 } from 'lucide-react';
 import { useOSTStore } from '@/store/ostStore';
@@ -26,8 +44,14 @@ import { computeFitView } from '@/lib/fitView';
 export function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const { tree, canvasState, setZoom, setOffset, addCard, moveCard, selectCard, layoutDirection } =
-    useOSTStore();
+  const rootIds = useOSTStore((state) => state.rootIds);
+  const canvasState = useOSTStore((state) => state.canvasState);
+  const layoutDirection = useOSTStore((state) => state.layoutDirection);
+  const setZoom = useOSTStore((state) => state.setZoom);
+  const setOffset = useOSTStore((state) => state.setOffset);
+  const addCard = useOSTStore((state) => state.addCard);
+  const moveCard = useOSTStore((state) => state.moveCard);
+  const selectCard = useOSTStore((state) => state.selectCard);
   const isHorizontal = layoutDirection === 'horizontal';
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -35,7 +59,7 @@ export function Canvas() {
   const fitInProgressRef = useRef(false);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(SmartPointerSensor, {
       activationConstraint: {
         distance: 8,
       },
@@ -81,7 +105,7 @@ export function Canvas() {
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const card = tree.cards[active.id as string];
+    const card = useOSTStore.getState().tree.cards[active.id as string];
     if (card) {
       setActiveCard(card);
     }
@@ -222,21 +246,21 @@ export function Canvas() {
         >
           <div ref={contentRef} data-ost-export-bounds className="flex flex-col items-center gap-6">
             {/* Add new root outcome button */}
-            {tree.rootIds.length > 0 && (
+            {rootIds.length > 0 && (
               <div className="mt-2">
                 <AddCardButton type="outcome" onClick={() => addCard('outcome', null)} size="md" />
               </div>
             )}
 
             {/* Root nodes */}
-            {tree.rootIds.length === 0 ? (
+            {rootIds.length === 0 ? (
               <div className="flex flex-col items-center gap-4 mt-32">
                 <p className="text-muted-foreground text-lg">Start by adding an Outcome</p>
                 <AddCardButton type="outcome" onClick={() => addCard('outcome', null)} size="md" />
               </div>
             ) : (
               <div className={cn('flex gap-16', isHorizontal && 'flex-col')}>
-                {tree.rootIds.map((rootId) => (
+                {rootIds.map((rootId) => (
                   <TreeNode key={rootId} cardId={rootId} />
                 ))}
               </div>
