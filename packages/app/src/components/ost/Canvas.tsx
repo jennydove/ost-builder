@@ -74,9 +74,11 @@ export function Canvas() {
     let panStartY = 0;
 
     const onPointerDown = (e: PointerEvent) => {
-      const onCard = (e.target as Element | null)?.closest('[data-ost-card]') !== null;
+      const target = e.target as Element | null;
+      const onCard = target?.closest('[data-ost-card]') !== null;
+      const onInteractive = target?.closest('button, input, textarea, select, a, [role="menuitem"], [role="option"]') !== null;
       const isPanGesture =
-        e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && !onCard);
+        e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && !onCard && !onInteractive);
       if (!isPanGesture) return;
       e.preventDefault();
       e.stopPropagation(); // prevent dnd-kit from also activating on shift+drag
