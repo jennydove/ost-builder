@@ -19,6 +19,35 @@ Live demo: [https://ost-builder.trinixlabs.dev](https://ost-builder.trinixlabs.d
 - Compact or full card density
 - Privacy - All data is stored only in your browser
 
+## Development
+
+**Prerequisites:** Node.js 18+, npm 9+
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server (http://localhost:5173)
+npm run dev
+
+# Build production bundle
+npm run build
+
+# Preview production build locally (http://localhost:4173)
+npm run preview
+
+# Run unit tests
+npm test
+
+# Run E2E guard tests (requires a production build)
+npm run build && npm run test:e2e
+
+# Run E2E tests with UI
+npm run test:e2e:ui
+```
+
+> **Note:** `npm run dev` uses Vite's module-per-file dev server — first load is slow (~30s) due to on-demand compilation. For a realistic performance baseline, use `npm run preview` against the production build instead.
+
 ## CLI
 
 If you are working with your markdown file on your laptop, you can use the CLI to quickly visualise it in your browser or to generate a shareable link.
