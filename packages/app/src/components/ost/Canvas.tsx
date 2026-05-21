@@ -41,6 +41,8 @@ import type { OSTCard as OSTCardType } from '@ost-builder/shared';
 import { Button } from '@/components/ui/button';
 import { computeFitView } from '@/lib/fitView';
 
+const SENSOR_OPTIONS = { activationConstraint: { distance: 8 } };
+
 export function Canvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -58,25 +60,21 @@ export function Canvas() {
   const [activeCard, setActiveCard] = useState<OSTCardType | null>(null);
   const fitInProgressRef = useRef(false);
 
-  const sensors = useSensors(
-    useSensor(SmartPointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-  );
+  const sensors = useSensors(useSensor(SmartPointerSensor, SENSOR_OPTIONS));
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const { canvasState } = useOSTStore.getState();
         setZoom(canvasState.zoom + delta);
       } else {
+        const { canvasState } = useOSTStore.getState();
         setOffset(canvasState.offset.x - e.deltaX, canvasState.offset.y - e.deltaY);
       }
     },
-    [canvasState, setZoom, setOffset],
+    [setZoom, setOffset],
   );
 
   const handleMouseDown = useCallback(
@@ -84,10 +82,11 @@ export function Canvas() {
       if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
         e.preventDefault();
         setIsPanning(true);
+        const { canvasState } = useOSTStore.getState();
         setPanStart({ x: e.clientX - canvasState.offset.x, y: e.clientY - canvasState.offset.y });
       }
     },
-    [canvasState.offset],
+    [],
   );
 
   const handleMouseMove = useCallback(
@@ -103,15 +102,15 @@ export function Canvas() {
     setIsPanning(false);
   }, []);
 
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     const { active } = event;
     const card = useOSTStore.getState().tree.cards[active.id as string];
     if (card) {
       setActiveCard(card);
     }
-  };
+  }, []);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     setActiveCard(null);
 
@@ -124,7 +123,7 @@ export function Canvas() {
         }
       }
     }
-  };
+  }, [moveCard]);
 
   const handleCanvasClick = () => {
     selectCard(null);
