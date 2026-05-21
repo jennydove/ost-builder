@@ -27,7 +27,6 @@ class SmartPointerSensor extends PointerSensor {
     },
   ];
 }
-import { motion } from 'framer-motion';
 import { ZoomIn, ZoomOut, RotateCcw, Maximize2 } from 'lucide-react';
 import { useOSTStore } from '@/store/ostStore';
 import { TreeNode } from './TreeNode';
@@ -200,7 +199,7 @@ export function Canvas() {
     >
       {/* Zoom controls */}
       <div
-        className="absolute bottom-6 left-6 flex items-center gap-2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg z-50"
+        className="absolute bottom-6 left-6 flex items-center gap-2 bg-card border border-border rounded-lg p-1 shadow-lg z-50"
         data-ost-export-exclude
       >
         <Button
@@ -233,7 +232,7 @@ export function Canvas() {
 
       {/* Canvas side controls */}
       <div
-        className="absolute top-6 right-6 flex items-center gap-2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg z-50"
+        className="absolute top-6 right-6 flex items-center gap-2 bg-card border border-border rounded-lg p-1 shadow-lg z-50"
         data-ost-export-exclude
         onClick={(e) => e.stopPropagation()}
       >
@@ -248,7 +247,7 @@ export function Canvas() {
 
       {/* Canvas content */}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <motion.div
+        <div
           data-ost-export-content
           className="absolute inset-0 flex justify-center pt-16"
           style={{
@@ -278,7 +277,7 @@ export function Canvas() {
               </div>
             )}
           </div>
-        </motion.div>
+        </div>
 
         {/* Drag overlay */}
         <DragOverlay dropAnimation={null}>
