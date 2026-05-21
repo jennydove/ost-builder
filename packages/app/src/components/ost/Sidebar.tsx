@@ -32,8 +32,11 @@ const typeColors: Record<CardType, string> = {
 };
 
 export function Sidebar() {
-  const { tree, selectedCardId, selectCard, updateCard, deleteCard } = useOSTStore();
-  const card = selectedCardId ? tree.cards[selectedCardId] : null;
+  const selectedCardId = useOSTStore((state) => state.selectedCardId);
+  const card = useOSTStore((state) => state.selectedCardId ? state.tree.cards[state.selectedCardId] : null);
+  const selectCard = useOSTStore((state) => state.selectCard);
+  const updateCard = useOSTStore((state) => state.updateCard);
+  const deleteCard = useOSTStore((state) => state.deleteCard);
 
   if (!card) return null;
 
