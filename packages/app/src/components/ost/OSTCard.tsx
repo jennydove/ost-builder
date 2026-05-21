@@ -174,6 +174,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
+                data-testid="card-menu-trigger"
                 className="p-1 rounded-md hover:bg-muted transition-colors"
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}

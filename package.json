@@ -1,8 +1,11 @@
 {
   "name": "ost-builder-workspace",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.16.5",
     "typescript": "^5.9.3"
   },
@@ -20,6 +23,11 @@
     "format": "npx prettier --write \"packages/**/*.{tsx,ts,css,md,json}\" --config packages/app/.prettierrc",
     "preview": "npm -w @ost-builder/app run preview",
     "test": "npm -w @ost-builder/app run test",
-    "test:watch": "npm -w @ost-builder/app run test:watch"
+    "test:watch": "npm -w @ost-builder/app run test:watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "dependencies": {
+    "playwright": "^1.60.0"
   }
 }

@@ -212,6 +212,7 @@ export function Canvas() {
         data-ost-export-exclude
       >
         <Button
+          data-testid="zoom-out"
           variant="ghost"
           size="icon"
           className="h-8 w-8"
@@ -219,10 +220,11 @@ export function Canvas() {
         >
           <ZoomOut className="w-4 h-4" />
         </Button>
-        <span className="text-xs font-medium w-12 text-center">
+        <span data-testid="zoom-level" className="text-xs font-medium w-12 text-center">
           {Math.round(canvasState.zoom * 100)}%
         </span>
         <Button
+          data-testid="zoom-in"
           variant="ghost"
           size="icon"
           className="h-8 w-8"
