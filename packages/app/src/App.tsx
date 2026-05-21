@@ -18,7 +18,6 @@ import {
 } from '@/lib/localSnapshots';
 import { updateStoredShare } from '@/lib/storedShareApi';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
-import { MOZILLA_OST_MARKDOWN, MOZILLA_OST_NAME, MOZILLA_OST_SOURCE_KEY } from '@/lib/mozillaOST';
 import CdnStats from '@/components/analytics/CdnStats';
 import Index from './pages/Index';
 import NotFound from './pages/NotFound';
@@ -26,15 +25,6 @@ import NotFound from './pages/NotFound';
 const StoredShareOpen = lazy(() => import('./pages/StoredShareOpen'));
 const Library = lazy(() => import('./pages/Library'));
 
-// Seed the Mozilla OST into the library, always keeping it current
-function seedMozillaOST() {
-  upsertLocalSnapshotBySource(MOZILLA_OST_SOURCE_KEY, 'manual', {
-    name: MOZILLA_OST_NAME,
-    markdown: MOZILLA_OST_MARKDOWN,
-    collapsedIds: [],
-  });
-}
-seedMozillaOST();
 
 function LibraryAutoSave() {
   const markdown = useOSTStore((state) => state.markdown);
