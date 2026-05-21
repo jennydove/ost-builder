@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { encodeMarkdownToUrlFragment } from '@ost-builder/shared';
 import {
@@ -8,11 +8,11 @@ import {
   Edit3,
   FileDown,
   Library as LibraryIcon,
-  Loader2,
   Pencil,
   Share2,
   Trash2,
 } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,47 +28,32 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  createStoredShare,
-  extendStoredShare,
-  getAuthMe,
+  deleteStoredShare,
   getStoredShare,
-  type AuthUser,
-  type ShareVisibility,
-  updateStoredShare,
+  listStoredShares,
 } from '@/lib/storedShareApi';
 import {
-  buildSnapshotPayloadHash,
   clearActiveLocalSnapshotSourceKey,
   deleteLocalSnapshot,
+  findLocalSnapshotBySource,
   getActiveLocalSnapshotSourceKey,
   listLocalSnapshots,
   saveLocalSnapshot,
   setActiveLocalSnapshotSourceKey,
   updateLocalSnapshot,
+  upsertShareSnapshot,
   type LocalSnapshot,
 } from '@/lib/localSnapshots';
+import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { useOSTStore } from '@/store/ostStore';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
-const CLOUD_SHARE_UI_TOGGLE_KEY = 'ost:feature:cloud-share';
 const DEFAULT_PROJECT_NAME = 'My Opportunity Solution Tree';
-const TTL_OPTIONS = [1, 7, 30, 90] as const;
-type TtlOption = (typeof TTL_OPTIONS)[number];
-type CloudSyncState = 'in-sync' | 'local-ahead' | 'cloud-ahead' | 'unknown';
 
 function localSourceLabel(sourceType?: LocalSnapshot['sourceType'], isActive?: boolean): string {
   if (isActive) return 'active';
-  if (sourceType === 'draft') return 'local';
-  if (sourceType === 'share-cloud') return 'from cloud share';
-  if (sourceType === 'share-fragment') return 'from local share';
-  if (sourceType === 'create-new') return 'from create new';
+  if (sourceType === 'share-cloud') return 'cloud';
+  if (sourceType === 'share-fragment') return 'from link';
   return 'local';
 }
 
@@ -77,12 +62,6 @@ function sourceBadgeClass(isActive?: boolean): string | undefined {
     return 'bg-emerald-500/15 text-emerald-700 border-emerald-400/50 motion-safe:animate-pulse';
   }
   return undefined;
-}
-
-function isCloudFeatureToggleEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
-  const raw = (window.localStorage.getItem(CLOUD_SHARE_UI_TOGGLE_KEY) || '').toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'enabled' || raw === 'on';
 }
 
 function applyProjectNameToMarkdown(markdown: string, name: string): string {
@@ -110,26 +89,6 @@ function getCloudId(item: LocalSnapshot): string | null {
     return item.sourceKey.slice('cloud:'.length);
   }
   return null;
-}
-
-function cloudStateBadge(state?: CloudSyncState): { label: string; className: string } | null {
-  if (!state) return null;
-  if (state === 'in-sync')
-    return {
-      label: 'In sync',
-      className: 'bg-emerald-500/15 text-emerald-700 border-emerald-400/40',
-    };
-  if (state === 'local-ahead')
-    return {
-      label: 'Local ahead',
-      className: 'bg-amber-500/15 text-amber-700 border-amber-400/40',
-    };
-  if (state === 'cloud-ahead')
-    return { label: 'Cloud ahead', className: 'bg-sky-500/15 text-sky-700 border-sky-400/40' };
-  return {
-    label: 'Cloud state unknown',
-    className: 'bg-muted text-muted-foreground border-border',
-  };
 }
 
 function EditInBuilderIcon({ className }: { className?: string }) {
@@ -163,96 +122,64 @@ export default function Library() {
   const [pendingLoadItem, setPendingLoadItem] = useState<LocalSnapshot | null>(null);
   const [pendingDeleteItem, setPendingDeleteItem] = useState<LocalSnapshot | null>(null);
   const [activeSourceKey, setActiveSourceKey] = useState<string | null>(null);
-
-  const [cloudToggleEnabled, setCloudToggleEnabled] = useState(false);
-  const [cloudFeatureEnabled, setCloudFeatureEnabled] = useState(false);
-  const [cloudUser, setCloudUser] = useState<AuthUser | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncingItemId, setSyncingItemId] = useState<string | null>(null);
-  const [cloudStateByItemId, setCloudStateByItemId] = useState<Record<string, CloudSyncState>>({});
-  const [cloudVisibilityByItemId, setCloudVisibilityByItemId] = useState<
-    Record<string, ShareVisibility>
-  >({});
-  const [cloudTtlByItemId, setCloudTtlByItemId] = useState<Record<string, TtlOption>>({});
-
-  const syncAvailable = cloudToggleEnabled && cloudFeatureEnabled;
-
-  const reloadLocalItems = async () => {
-    const nextItems = listLocalSnapshots();
-    setItems(nextItems);
-    await refreshCloudStates(nextItems);
-  };
-
-  const refreshCloudStateForItem = async (item: LocalSnapshot) => {
-    if (!isCloudFeatureToggleEnabled()) return;
-    const cloudId = getCloudId(item);
-    if (!cloudId) return;
-
-    try {
-      const remote = await getStoredShare(cloudId);
-      const localHash = buildSnapshotPayloadHash({
-        name: item.name,
-        markdown: item.markdown,
-        settings: item.settings,
-        collapsedIds: item.collapsedIds || [],
-      });
-      const remoteHash = buildSnapshotPayloadHash({
-        name: remote.name || item.name,
-        markdown: remote.markdown,
-        settings: remote.settings,
-        collapsedIds: remote.collapsedIds || [],
-      });
-      const state: CloudSyncState =
-        localHash === remoteHash
-          ? 'in-sync'
-          : item.updatedAt > remote.updatedAt
-            ? 'local-ahead'
-            : 'cloud-ahead';
-      setCloudStateByItemId((prev) => ({ ...prev, [item.id]: state }));
-      setCloudVisibilityByItemId((prev) => ({ ...prev, [item.id]: remote.visibility }));
-    } catch {
-      setCloudStateByItemId((prev) => ({ ...prev, [item.id]: 'unknown' }));
-    }
-  };
-
-  const refreshCloudStates = async (nextItems: LocalSnapshot[]) => {
-    if (!isCloudFeatureToggleEnabled()) return;
-    const withCloud = nextItems.filter((item) => !!getCloudId(item));
-    if (!withCloud.length) return;
-    await Promise.all(withCloud.map((item) => refreshCloudStateForItem(item)));
-  };
+  const [cloudUser, setCloudUser] = useState<User | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const nextItems = listLocalSnapshots();
-    setItems(nextItems);
-    setActiveSourceKey(getActiveLocalSnapshotSourceKey());
-    setCloudTtlByItemId(
-      nextItems.reduce<Record<string, TtlOption>>((acc, item) => {
-        acc[item.id] = 30;
-        return acc;
-      }, {}),
-    );
-
-    const toggleEnabled = isCloudFeatureToggleEnabled();
-    setCloudToggleEnabled(toggleEnabled);
-
-    if (!toggleEnabled) {
-      setCloudFeatureEnabled(false);
-      setCloudUser(null);
-      setLoading(false);
-      return;
-    }
-
     try {
-      const auth = await getAuthMe();
-      setCloudFeatureEnabled(auth.featureEnabled);
-      setCloudUser(auth.user);
-      await refreshCloudStates(nextItems);
-    } catch {
-      setCloudFeatureEnabled(false);
-      setCloudUser(null);
-      await refreshCloudStates(nextItems);
+      const localItems = listLocalSnapshots();
+      setActiveSourceKey(getActiveLocalSnapshotSourceKey());
+
+      if (!supabaseConfigured) {
+        setItems(localItems);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      setCloudUser(session?.user ?? null);
+
+      if (!session) {
+        setItems(localItems);
+        return;
+      }
+
+      // Fetch user's cloud shares
+      let cloudItems: Awaited<ReturnType<typeof listStoredShares>>['items'] = [];
+      try {
+        const result = await listStoredShares(1, 50);
+        cloudItems = result.items;
+      } catch {
+        setItems(localItems);
+        return;
+      }
+
+      // Find cloud items not yet in local library
+      const localCloudIds = new Set(
+        localItems.map((item) => getCloudId(item)).filter((id): id is string => !!id),
+      );
+      const cloudOnlyItems = cloudItems.filter((c) => !localCloudIds.has(c.id));
+
+      // Fetch full payloads for cloud-only items and create local snapshots
+      await Promise.all(
+        cloudOnlyItems.map(async (cloudItem) => {
+          try {
+            const payload = await getStoredShare(cloudItem.id);
+            upsertShareSnapshot(`cloud:${cloudItem.id}`, 'share-cloud', {
+              name: payload.name ?? cloudItem.name ?? 'Untitled',
+              markdown: payload.markdown,
+              settings: payload.settings ?? undefined,
+              collapsedIds: payload.collapsedIds ?? [],
+            });
+            const snap = findLocalSnapshotBySource(`cloud:${cloudItem.id}`);
+            if (snap) updateLocalSnapshot(snap.id, { cloudShareId: cloudItem.id });
+          } catch {
+            // Skip items we can't fetch
+          }
+        }),
+      );
+
+      // Re-read local items (now includes newly created cloud snapshots)
+      setItems(listLocalSnapshots());
     } finally {
       setLoading(false);
     }
@@ -282,7 +209,6 @@ export default function Library() {
     const sourceKey = item.sourceKey || `item:${item.id}`;
     if (!item.sourceKey) {
       updateLocalSnapshot(item.id, { sourceKey, sourceType: item.sourceType || 'manual' });
-      void reloadLocalItems();
     }
     setActiveLocalSnapshotSourceKey(sourceKey);
     setActiveSourceKey(sourceKey);
@@ -295,17 +221,28 @@ export default function Library() {
     navigate('/');
   };
 
-  const removeLocal = (id: string) => {
+  const removeItem = async (id: string) => {
     const item = items.find((entry) => entry.id === id);
-    if (item?.sourceKey) {
+    if (!item) return;
+
+    if (item.sourceKey) {
       const active = getActiveLocalSnapshotSourceKey();
-      if (active === item.sourceKey) {
-        clearActiveLocalSnapshotSourceKey();
+      if (active === item.sourceKey) clearActiveLocalSnapshotSourceKey();
+    }
+
+    deleteLocalSnapshot(id);
+
+    const cloudId = getCloudId(item);
+    if (cloudId && cloudUser) {
+      try {
+        await deleteStoredShare(cloudId);
+      } catch {
+        // Local deleted; cloud delete best-effort
       }
     }
-    deleteLocalSnapshot(id);
-    void reloadLocalItems();
-    toast({ title: 'Deleted', description: 'Library item removed.' });
+
+    void load();
+    toast({ title: 'Deleted', description: 'OST deleted.' });
   };
 
   const beginRenameLocal = (item: LocalSnapshot) => {
@@ -327,8 +264,8 @@ export default function Library() {
 
     setEditingId(null);
     setNameDraft('');
-    void reloadLocalItems();
-    toast({ title: 'Saved', description: 'Library item renamed.' });
+    void load();
+    toast({ title: 'Saved', description: 'OST renamed.' });
   };
 
   const beginEditContent = (item: LocalSnapshot) => {
@@ -355,8 +292,8 @@ export default function Library() {
 
     setEditingContentId(null);
     setContentDraft('');
-    void reloadLocalItems();
-    toast({ title: 'Saved', description: 'Library content updated.' });
+    void load();
+    toast({ title: 'Saved', description: 'Content updated.' });
   };
 
   const downloadAsMarkdown = (item: LocalSnapshot) => {
@@ -387,155 +324,8 @@ export default function Library() {
       settings: item.settings,
       collapsedIds: item.collapsedIds || [],
     });
-    void reloadLocalItems();
+    void load();
     toast({ title: 'Duplicated', description: 'A copy was added to your library.' });
-  };
-
-  const syncCountLabel = useMemo(() => {
-    const synced = items.filter((item) => !!item.syncedAt).length;
-    return `${synced}/${items.length} synced`;
-  }, [items]);
-
-  const syncItemToCloud = async (item: LocalSnapshot) => {
-    const payload = {
-      markdown: item.markdown,
-      name: item.name,
-      settings: item.settings,
-      collapsedIds: item.collapsedIds || [],
-    };
-
-    const visibility = cloudVisibilityByItemId[item.id] || 'private';
-    const ttlDays = cloudTtlByItemId[item.id] || 30;
-
-    let cloudId = getCloudId(item);
-    if (cloudId) {
-      try {
-        await updateStoredShare(cloudId, { ...payload, visibility });
-        await extendStoredShare(cloudId, ttlDays);
-        updateLocalSnapshot(item.id, { cloudShareId: cloudId, syncedAt: Date.now() });
-        return;
-      } catch (error) {
-        const err = error as Error & { status?: number };
-        if (err.status !== 403 && err.status !== 404) {
-          throw error;
-        }
-      }
-    }
-
-    const created = await createStoredShare({
-      ...payload,
-      visibility,
-      ttlDays,
-    });
-    cloudId = created.id;
-    updateLocalSnapshot(item.id, { cloudShareId: cloudId, syncedAt: Date.now() });
-    setCloudVisibilityByItemId((prev) => ({ ...prev, [item.id]: created.visibility }));
-  };
-
-  const syncNow = async () => {
-    if (!syncAvailable) return;
-
-    if (!cloudUser) {
-      const returnTo = '/library';
-      window.location.href = `/api/auth/login?provider=github&returnTo=${encodeURIComponent(returnTo)}`;
-      return;
-    }
-
-    setSyncing(true);
-    try {
-      let syncedItems = 0;
-      for (const item of items) {
-        await syncItemToCloud(item);
-        syncedItems += 1;
-      }
-
-      await reloadLocalItems();
-      toast({ title: 'Sync complete', description: `${syncedItems} item(s) synced to cloud.` });
-    } catch (error) {
-      toast({
-        title: 'Sync failed',
-        description: error instanceof Error ? error.message : 'Could not sync Library items.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const syncSingleItem = async (item: LocalSnapshot) => {
-    if (!syncAvailable) return;
-    if (!cloudUser) {
-      const returnTo = '/library';
-      window.location.href = `/api/auth/login?provider=github&returnTo=${encodeURIComponent(returnTo)}`;
-      return;
-    }
-    setSyncingItemId(item.id);
-    try {
-      await syncItemToCloud(item);
-      await reloadLocalItems();
-      toast({ title: 'Synced', description: `${item.name} synced to cloud.` });
-    } catch (error) {
-      toast({
-        title: 'Sync failed',
-        description: error instanceof Error ? error.message : 'Could not sync this item.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSyncingItemId(null);
-    }
-  };
-
-  const createOrCopyCloudLink = async (item: LocalSnapshot) => {
-    if (!syncAvailable) return;
-    if (!cloudUser) {
-      const returnTo = '/library';
-      window.location.href = `/api/auth/login?provider=github&returnTo=${encodeURIComponent(returnTo)}`;
-      return;
-    }
-
-    setSyncingItemId(item.id);
-    try {
-      let cloudId = getCloudId(item);
-      if (!cloudId) {
-        await syncItemToCloud(item);
-        const refreshed = listLocalSnapshots().find((entry) => entry.id === item.id) || null;
-        cloudId = refreshed ? getCloudId(refreshed) : null;
-      }
-
-      if (!cloudId) {
-        throw new Error('Cloud link is not available yet.');
-      }
-
-      const link = `${window.location.origin}/s/${cloudId}`;
-      await navigator.clipboard.writeText(link);
-      await reloadLocalItems();
-      toast({ title: 'Copied', description: 'Cloud share link copied.' });
-    } catch (error) {
-      toast({
-        title: 'Cloud link failed',
-        description: error instanceof Error ? error.message : 'Could not create cloud share link.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSyncingItemId(null);
-    }
-  };
-
-  const updateItemVisibility = async (item: LocalSnapshot, visibility: ShareVisibility) => {
-    setCloudVisibilityByItemId((prev) => ({ ...prev, [item.id]: visibility }));
-    const cloudId = getCloudId(item);
-    if (!cloudId || !cloudUser) return;
-    try {
-      await updateStoredShare(cloudId, { visibility });
-      await refreshCloudStateForItem(item);
-      toast({ title: 'Updated', description: 'Link access updated.' });
-    } catch (error) {
-      toast({
-        title: 'Update failed',
-        description: error instanceof Error ? error.message : 'Could not update link access.',
-        variant: 'destructive',
-      });
-    }
   };
 
   if (loading) {
@@ -545,6 +335,11 @@ export default function Library() {
       </div>
     );
   }
+
+  const displayName =
+    cloudUser?.user_metadata?.full_name as string | undefined ||
+    cloudUser?.email ||
+    'you';
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -556,61 +351,34 @@ export default function Library() {
               Your OST Library
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Your OSTs are auto-saved locally. Active entry updates automatically while editing.
+              {cloudUser
+                ? `Signed in as ${displayName} · edits auto-save to cloud`
+                : 'Auto-saved locally. Sign in to sync to cloud.'}
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate('/')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to builder
-          </Button>
-        </div>
-
-        {syncAvailable ? (
-          <div className="rounded-md border border-border bg-card p-4 flex flex-wrap gap-3 items-center justify-between">
-            <div>
-              <div className="text-sm font-medium flex items-center gap-2">
-                <Cloud className="w-4 h-4" />
-                Cloud Sync
+          <div className="flex items-center gap-2">
+            {cloudUser && (
+              <div className="flex items-center gap-1 text-xs text-emerald-600">
+                <Cloud className="w-3 h-3" />
+                Cloud
               </div>
-              <div className="text-xs text-muted-foreground">
-                {cloudUser
-                  ? `Signed in as ${cloudUser.name || 'user'} · ${syncCountLabel}`
-                  : 'Sign in to sync your local Library to cloud.'}
-              </div>
-            </div>
-            <Button onClick={() => void syncNow()} disabled={syncing}>
-              {syncing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Syncing...
-                </>
-              ) : cloudUser ? (
-                <>
-                  <Cloud className="w-4 h-4 mr-2" />
-                  Sync now
-                </>
-              ) : (
-                <>
-                  <Cloud className="w-4 h-4 mr-2" />
-                  Sign in to sync
-                </>
-              )}
+            )}
+            <Button variant="outline" onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to builder
             </Button>
           </div>
-        ) : cloudToggleEnabled ? (
-          <div className="rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
-            Cloud sync is disabled in this environment.
-          </div>
-        ) : null}
+        </div>
 
         {items.length === 0 ? (
           <div className="rounded-md border border-border bg-card p-6 text-sm text-muted-foreground">
-            No Library items yet. Start editing and your OST will be auto-saved here.
+            No OSTs yet. Start editing and your work will be auto-saved here.
           </div>
         ) : (
           <div className="space-y-3">
             {items.map((item) => {
               const isActiveItem = !!item.sourceKey && item.sourceKey === activeSourceKey;
+              const cloudId = getCloudId(item);
               return (
                 <div
                   key={item.id}
@@ -622,18 +390,12 @@ export default function Library() {
                       <Badge variant="outline" className={sourceBadgeClass(isActiveItem)}>
                         {localSourceLabel(item.sourceType, isActiveItem)}
                       </Badge>
-                      {cloudVisibilityByItemId[item.id] === 'public' ? (
-                        <Badge variant="secondary">Shared</Badge>
-                      ) : null}
-                      {(() => {
-                        const cloudBadge = cloudStateBadge(cloudStateByItemId[item.id]);
-                        if (!cloudBadge) return null;
-                        return (
-                          <Badge variant="outline" className={cloudBadge.className}>
-                            {cloudBadge.label}
-                          </Badge>
-                        );
-                      })()}
+                      {cloudId && (
+                        <Badge variant="outline" className="bg-sky-500/10 text-sky-700 border-sky-400/40">
+                          <Cloud className="w-3 h-3 mr-1" />
+                          synced
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => beginRenameLocal(item)}>
@@ -655,74 +417,6 @@ export default function Library() {
                   <div className="text-xs text-muted-foreground">
                     Updated: {new Date(item.updatedAt).toLocaleString()}
                   </div>
-                  {item.lastOpenedAt ? (
-                    <div className="text-xs text-muted-foreground">
-                      Last opened from share: {new Date(item.lastOpenedAt).toLocaleString()}
-                    </div>
-                  ) : null}
-                  {syncAvailable && cloudUser ? (
-                    <div className="rounded-md border border-border bg-muted/30 p-2 flex flex-wrap gap-2 items-center">
-                      <Select
-                        value={cloudVisibilityByItemId[item.id] || 'private'}
-                        onValueChange={(value) =>
-                          void updateItemVisibility(item, value as ShareVisibility)
-                        }
-                      >
-                        <SelectTrigger className="w-[180px] h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="private">Only me</SelectItem>
-                          <SelectItem value="public">Anyone with link</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={String(cloudTtlByItemId[item.id] || 30)}
-                        onValueChange={(value) =>
-                          setCloudTtlByItemId((prev) => ({
-                            ...prev,
-                            [item.id]: Number(value) as TtlOption,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-[140px] h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 day</SelectItem>
-                          <SelectItem value="7">7 days</SelectItem>
-                          <SelectItem value="30">30 days</SelectItem>
-                          <SelectItem value="90">90 days</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        size="sm"
-                        onClick={() => void syncSingleItem(item)}
-                        disabled={syncingItemId === item.id || syncing}
-                      >
-                        {syncingItemId === item.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Syncing...
-                          </>
-                        ) : (
-                          <>
-                            <Cloud className="w-4 h-4 mr-2" />
-                            Sync this item
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void createOrCopyCloudLink(item)}
-                        disabled={syncingItemId === item.id || syncing}
-                      >
-                        <Share2 className="w-4 h-4 mr-2" />
-                        Cloud link
-                      </Button>
-                    </div>
-                  ) : null}
 
                   {editingId === item.id ? (
                     <div className="flex gap-2">
@@ -789,11 +483,11 @@ export default function Library() {
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => downloadAsMarkdown(item)}>
                         <FileDown className="w-4 h-4 mr-2" />
-                        Download Markdown
+                        Download
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => duplicateItem(item)}>
                         <Copy className="w-4 h-4 mr-2" />
-                        Duplicate OST
+                        Duplicate
                       </Button>
                       <Button
                         size="sm"
@@ -801,7 +495,7 @@ export default function Library() {
                         onClick={() => void copyLocalShareLink(item)}
                       >
                         <Share2 className="w-4 h-4 mr-2" />
-                        Share
+                        Share link
                       </Button>
                     </div>
                   )}
@@ -811,6 +505,7 @@ export default function Library() {
           </div>
         )}
       </div>
+
       <AlertDialog
         open={!!pendingLoadItem}
         onOpenChange={(open) => !open && setPendingLoadItem(null)}
@@ -827,9 +522,7 @@ export default function Library() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (pendingLoadItem) {
-                  openLocalSnapshot(pendingLoadItem);
-                }
+                if (pendingLoadItem) openLocalSnapshot(pendingLoadItem);
                 setPendingLoadItem(null);
               }}
             >
@@ -838,24 +531,25 @@ export default function Library() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       <AlertDialog
         open={!!pendingDeleteItem}
         onOpenChange={(open) => !open && setPendingDeleteItem(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete library item?</AlertDialogTitle>
+            <AlertDialogTitle>Delete OST?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{pendingDeleteItem?.name || 'This item'}" will be removed from your local library.
+              {pendingDeleteItem && getCloudId(pendingDeleteItem) && cloudUser
+                ? `"${pendingDeleteItem.name || 'This OST'}" will be permanently deleted from your library and the cloud.`
+                : `"${pendingDeleteItem?.name || 'This OST'}" will be removed from your local library.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (pendingDeleteItem) {
-                  removeLocal(pendingDeleteItem.id);
-                }
+                if (pendingDeleteItem) void removeItem(pendingDeleteItem.id);
                 setPendingDeleteItem(null);
               }}
             >

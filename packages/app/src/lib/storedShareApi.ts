@@ -25,10 +25,10 @@ export type StoredShareListItem = {
   id: string;
   name?: string | null;
   visibility: ShareVisibility;
-  status: ShareStatus;
+  status?: ShareStatus;
   createdAt: number;
   updatedAt: number;
-  expiresAt: number;
+  expiresAt?: number;
   link: string;
 };
 
