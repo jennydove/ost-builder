@@ -134,6 +134,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
     <motion.div
       ref={setNodeRef}
       style={style}
+      data-ost-card
       className={cn(
         'w-80 bg-card rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing',
         isSelected ? 'ring-2 ring-primary/50 border-primary/30' : 'border-border',

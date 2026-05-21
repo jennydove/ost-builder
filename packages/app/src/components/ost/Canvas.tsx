@@ -18,11 +18,13 @@ class SmartPointerSensor extends PointerSensor {
         if (!event.isPrimary || event.button !== 0) return false;
         if (event.shiftKey) return false; // Allow shift+drag for canvas panning
         let el = event.target as HTMLElement | null;
+        let onCard = false;
         while (el) {
+          if (el.dataset.ostCard !== undefined) { onCard = true; break; }
           if (['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'A'].includes(el.tagName)) return false;
           el = el.parentElement;
         }
-        return true;
+        return onCard; // Only activate dnd-kit when pointer starts on a card
       },
     },
   ];
@@ -72,7 +74,9 @@ export function Canvas() {
     let panStartY = 0;
 
     const onPointerDown = (e: PointerEvent) => {
-      const isPanGesture = e.button === 1 || (e.button === 0 && e.shiftKey);
+      const onCard = (e.target as Element | null)?.closest('[data-ost-card]') !== null;
+      const isPanGesture =
+        e.button === 1 || (e.button === 0 && e.shiftKey) || (e.button === 0 && !onCard);
       if (!isPanGesture) return;
       e.preventDefault();
       e.stopPropagation(); // prevent dnd-kit from also activating on shift+drag
