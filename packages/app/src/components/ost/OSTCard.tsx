@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   MoreHorizontal, Check, CheckCheck, Clock, Target, AlertCircle,
   TrendingUp, Search, Minus, Lightbulb, Beaker, XCircle, Play, Copy, Trash2,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { renderMarkdownLinks } from '@/lib/markdownLinks';
@@ -90,6 +91,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
   const deleteCard = useOSTStore((state) => state.deleteCard);
   const copyCard = useOSTStore((state) => state.copyCard);
   const copyCardWithChildren = useOSTStore((state) => state.copyCardWithChildren);
+  const commentCount = useOSTStore((state) => state.commentCountsByCardId[card.id] ?? 0);
   const [editTitle, setEditTitle] = useState(card.title);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -167,6 +169,13 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
         </div>
 
         <div className="flex items-center gap-2">
+          {commentCount > 0 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <MessageSquare className="w-3 h-3" />
+              <span>{commentCount}</span>
+            </div>
+          )}
+
           {status.icon && (
             <div className={cn('flex items-center gap-1 text-xs font-medium', status.className)}>
               {status.icon}

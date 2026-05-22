@@ -16,6 +16,7 @@ import {
 import type { CardType, CardStatus } from '@ost-builder/shared';
 import { cn } from '@/lib/utils';
 import { OST_GUIDANCE } from '@/lib/ostGuidance';
+import { CommentsSection } from './CommentsSection';
 
 const typeIcons: Record<CardType, React.ReactNode> = {
   outcome: <Target className="w-4 h-4" />,
@@ -263,6 +264,8 @@ export function Sidebar() {
               </div>
             </div>
           )}
+
+          <CommentsSection cardId={card.id} />
 
           {/* Card info */}
           <div className="pt-4 border-t border-border space-y-2 text-xs text-muted-foreground">

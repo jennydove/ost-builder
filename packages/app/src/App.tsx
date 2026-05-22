@@ -16,7 +16,7 @@ import {
   upsertShareSnapshot,
   updateLocalSnapshot,
 } from '@/lib/localSnapshots';
-import { updateStoredShare } from '@/lib/storedShareApi';
+import { getStoredShare, listShareComments, updateStoredShare } from '@/lib/storedShareApi';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import CdnStats from '@/components/analytics/CdnStats';
 import Index from './pages/Index';
@@ -93,6 +93,62 @@ function LibraryAutoSave() {
   return null;
 }
 
+function ActiveCloudShareTracker() {
+  const markdown = useOSTStore((state) => state.markdown);
+  const projectName = useOSTStore((state) => state.projectName);
+  const setActiveCloudContext = useOSTStore((state) => state.setActiveCloudContext);
+  const setCommentCounts = useOSTStore((state) => state.setCommentCounts);
+
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+
+    const sourceKey = getActiveLocalSnapshotSourceKey();
+    const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
+    let cloudShareId: string | null = snap?.cloudShareId ?? null;
+    if (!cloudShareId && sourceKey?.startsWith('cloud:')) {
+      cloudShareId = sourceKey.slice('cloud:'.length);
+    }
+
+    if (!cloudShareId) {
+      setActiveCloudContext(null, false);
+      setCommentCounts({});
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || cancelled) {
+          if (!cancelled) setActiveCloudContext(cloudShareId, false);
+          return;
+        }
+        const [payload, commentsRes] = await Promise.all([
+          getStoredShare(cloudShareId!).catch(() => null),
+          listShareComments(cloudShareId!).catch(() => ({ comments: [] })),
+        ]);
+        if (cancelled) return;
+
+        const isOwner = payload?.role === 'owner';
+        setActiveCloudContext(cloudShareId, isOwner);
+
+        const counts: Record<string, number> = {};
+        for (const c of commentsRes.comments) {
+          counts[c.cardId] = (counts[c.cardId] ?? 0) + 1;
+        }
+        setCommentCounts(counts);
+      } catch {
+        // best-effort
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [markdown, projectName, setActiveCloudContext, setCommentCounts]);
+
+  return null;
+}
+
 function ShareLinkLoader() {
   const location = useLocation();
 
@@ -131,6 +187,7 @@ const App = () => (
     <Sonner />
     <BrowserRouter>
       <LibraryAutoSave />
+      <ActiveCloudShareTracker />
       <ShareLinkLoader />
       <Suspense>
         <Routes>

@@ -78,6 +78,15 @@ interface OSTStore {
     settings?: ShareSettings;
     collapsedIds?: string[];
   }) => void;
+
+  // Comments — in-memory only, populated when a cloud-synced OST is active
+  activeCloudShareId: string | null;
+  activeIsOwner: boolean;
+  commentCountsByCardId: Record<string, number>;
+  setActiveCloudContext: (shareId: string | null, isOwner: boolean) => void;
+  setCommentCounts: (counts: Record<string, number>) => void;
+  incrementCommentCount: (cardId: string) => void;
+  decrementCommentCount: (cardId: string) => void;
 }
 
 const defaultMarkdown = createDefaultMarkdown();
@@ -120,6 +129,42 @@ export const useOSTStore = create<OSTStore>()(
       collapsedCardIds: [],
       selectedCardId: null,
       editingCardId: null,
+      activeCloudShareId: null,
+      activeIsOwner: false,
+      commentCountsByCardId: {},
+
+      setActiveCloudContext: (shareId, isOwner) => {
+        set((state) => {
+          if (state.activeCloudShareId === shareId && state.activeIsOwner === isOwner) {
+            return state;
+          }
+          // Clear counts when share changes; caller is responsible for refilling
+          return {
+            activeCloudShareId: shareId,
+            activeIsOwner: isOwner,
+            commentCountsByCardId: shareId === state.activeCloudShareId ? state.commentCountsByCardId : {},
+          };
+        });
+      },
+
+      setCommentCounts: (counts) => set({ commentCountsByCardId: counts }),
+
+      incrementCommentCount: (cardId) =>
+        set((state) => ({
+          commentCountsByCardId: {
+            ...state.commentCountsByCardId,
+            [cardId]: (state.commentCountsByCardId[cardId] ?? 0) + 1,
+          },
+        })),
+
+      decrementCommentCount: (cardId) =>
+        set((state) => {
+          const next = Math.max(0, (state.commentCountsByCardId[cardId] ?? 0) - 1);
+          const updated = { ...state.commentCountsByCardId };
+          if (next === 0) delete updated[cardId];
+          else updated[cardId] = next;
+          return { commentCountsByCardId: updated };
+        }),
 
       addCard: (type, parentId, title) => {
         const id = nanoid();

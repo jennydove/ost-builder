@@ -32,17 +32,19 @@ export type StoredShareListItem = {
   link: string;
 };
 
+export type ShareRole = 'owner' | 'editor' | 'viewer';
+
 export type StoredSharePayload = {
   id: string;
   name?: string | null;
   visibility: ShareVisibility;
-  expiresAt: number;
+  expiresAt?: number;
   createdAt: number;
   updatedAt: number;
   markdown: string;
   settings?: ShareSettings;
   collapsedIds?: string[];
-  isOwner: boolean;
+  role: ShareRole;
 };
 
 async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
@@ -149,4 +151,40 @@ export async function deleteStoredShare(id: string): Promise<void> {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+export type ShareComment = {
+  id: string;
+  cardId: string;
+  userId: string | null;
+  authorName: string | null;
+  body: string;
+  createdAt: number;
+};
+
+export async function listShareComments(
+  shareId: string,
+  cardId?: string,
+): Promise<{ comments: ShareComment[] }> {
+  const qs = cardId ? `?cardId=${encodeURIComponent(cardId)}` : '';
+  return apiFetch(`/api/share/store/${encodeURIComponent(shareId)}/comments${qs}`);
+}
+
+export async function postShareComment(
+  shareId: string,
+  cardId: string,
+  body: string,
+): Promise<{ comment: ShareComment }> {
+  return apiFetch(`/api/share/store/${encodeURIComponent(shareId)}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cardId, body }),
+  });
+}
+
+export async function deleteShareComment(shareId: string, commentId: string): Promise<void> {
+  await apiFetch(
+    `/api/share/store/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
+    { method: 'DELETE' },
+  );
 }
