@@ -326,13 +326,11 @@ describe('parseMarkdownToTree', () => {
       expect(solution.type).toBe('solution');
     });
 
-    it('should generate consistent IDs based on position', () => {
+    it('should produce structurally equivalent trees on repeated parse', () => {
       const tree1 = parseMarkdownToTree(samples.HIERARCHY_SAMPLES.twoLevel);
       const tree2 = parseMarkdownToTree(samples.HIERARCHY_SAMPLES.twoLevel);
-      expect(tree1.rootIds[0]).toBe(tree2.rootIds[0]);
-      const card1 = tree1.cards[tree1.rootIds[0]];
-      const card2 = tree2.cards[tree2.rootIds[0]];
-      expect(card1.id).toBe(card2.id);
+      expect(tree1.rootIds).toHaveLength(tree2.rootIds.length);
+      expect(Object.keys(tree1.cards)).toHaveLength(Object.keys(tree2.cards).length);
     });
   });
 
@@ -369,12 +367,11 @@ describe('parseMarkdownToTree', () => {
       expect(card.description).toContain('Special characters');
     });
 
-    it('should strip legacy ID tokens', () => {
+    it('should preserve explicit {#id} tokens as stable card IDs', () => {
       const tree = parseMarkdownToTree(samples.EDGE_CASE_SAMPLES.legacyId);
       const card = getFirstCard(tree);
-      expect(card.title).toBe('Test');
+      expect(card.id).toBe('old-id');
       expect(card.title).not.toContain('{#');
-      expect(card.title).not.toContain('old-id');
     });
 
     it('should handle extra whitespace in titles', () => {
@@ -452,32 +449,45 @@ describe('parseMarkdownToTree', () => {
   });
 
   describe('ID generation stability', () => {
-    it('should generate same IDs for same input', () => {
-      const markdown = samples.FULL_EXAMPLES.simpleTree;
-      const tree1 = parseMarkdownToTree(markdown);
-      const tree2 = parseMarkdownToTree(markdown);
+    it('should mint unique IDs for cards without {#id}', () => {
+      const md = `## [Outcome] Same Title
+### [Opportunity] Same Title
+#### [Solution] Same Title
+`;
+      const tree = parseMarkdownToTree(md);
+      const ids = getAllCards(tree).map((c) => c.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    });
 
-      expect(tree1.rootIds).toEqual(tree2.rootIds);
+    it('should regenerate IDs that duplicate within a tree (e.g. from copy/paste)', () => {
+      const md = `## [Outcome] First {#dup}
+## [Outcome] Second {#dup}
+`;
+      const tree = parseMarkdownToTree(md);
+      const ids = getAllCards(tree).map((c) => c.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      // At least one card kept the explicit ID
+      expect(ids).toContain('dup');
+    });
+
+    it('should preserve card IDs across serialize → parse round-trip', () => {
+      const tree1 = parseMarkdownToTree(samples.FULL_EXAMPLES.simpleTree);
+      const serialized = serializeTreeToMarkdown(tree1);
+      const tree2 = parseMarkdownToTree(serialized);
       expect(Object.keys(tree1.cards).sort()).toEqual(Object.keys(tree2.cards).sort());
     });
 
-    it('should generate different IDs for different content', () => {
-      const md1 = '## [Outcome] Title A\n';
-      const md2 = '## [Outcome] Title B\n';
-      const tree1 = parseMarkdownToTree(md1);
-      const tree2 = parseMarkdownToTree(md2);
-
-      expect(tree1.rootIds[0]).not.toBe(tree2.rootIds[0]);
-    });
-
-    it('should generate different IDs for different positions', () => {
-      const md = `## [Outcome] Same Title
-### [Opportunity] Same Title
-`;
-      const tree = parseMarkdownToTree(md);
-      const cards = getAllCards(tree);
-      const ids = cards.map((c) => c.id);
-      expect(new Set(ids).size).toBe(ids.length); // All unique
+    it('should preserve card IDs when title changes (anchor stability)', () => {
+      const original = `## [Outcome] Original Title {#stable-1}\n`;
+      const tree1 = parseMarkdownToTree(original);
+      const card1 = getFirstCard(tree1);
+      // Mutate the title and re-serialize, like the editor would
+      card1.title = 'Renamed Title';
+      const serialized = serializeTreeToMarkdown(tree1);
+      const tree2 = parseMarkdownToTree(serialized);
+      const card2 = getFirstCard(tree2);
+      expect(card2.id).toBe('stable-1');
+      expect(card2.title).toBe('Renamed Title');
     });
   });
 });
@@ -487,7 +497,7 @@ describe('serializeTreeToMarkdown', () => {
     it('should serialize a single card', () => {
       const tree = parseMarkdownToTree(samples.MINIMAL_SAMPLES.outcome);
       const markdown = serializeTreeToMarkdown(tree);
-      expect(markdown).toContain('## [Outcome] Test Outcome @on-track');
+      expect(markdown).toMatch(/## \[Outcome\] Test Outcome \{#\S+\} @on-track/);
       expect(markdown).toContain('Description text');
       expect(markdown).toContain('- start: 0');
       expect(markdown).toContain('- current: 5');

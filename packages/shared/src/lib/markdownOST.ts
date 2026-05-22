@@ -62,6 +62,7 @@ const STATUS_MAP: Record<string, CardStatus> = {
 
 interface ParsedCard {
   id: string;
+  explicitId: string | null;
   type: CardType;
   title: string;
   description?: string;
@@ -98,9 +99,11 @@ function parseCardHeading(
     return null;
   }
 
-  // Strip legacy ID tokens if present
-  const idMatch = remaining.match(/\{#([^}]+)\}/);
+  // Capture explicit stable ID if present (e.g. `{#abc12345}`)
+  let explicitId: string | null = null;
+  const idMatch = remaining.match(/\{#([a-zA-Z0-9_-]+)\}/);
   if (idMatch) {
+    explicitId = idMatch[1];
     remaining = remaining.replace(idMatch[0], '').trim();
   }
 
@@ -116,6 +119,7 @@ function parseCardHeading(
 
   return {
     id: '',
+    explicitId,
     type,
     title,
     status,
@@ -161,18 +165,10 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
     rootIds: [],
   };
 
-  const parentStack: { id: string; level: number; path: string; childCount: number }[] = [];
-  let rootCount = 0;
+  const parentStack: { id: string; level: number }[] = [];
+  const seenIds = new Set<string>();
   let currentCard: ParsedCard | null = null;
   let contentLines: string[] = [];
-
-  const hashString = (value: string) => {
-    let hash = 5381;
-    for (let i = 0; i < value.length; i += 1) {
-      hash = (hash * 33) ^ value.charCodeAt(i);
-    }
-    return (hash >>> 0).toString(36);
-  };
 
   const finalizeCard = () => {
     if (!currentCard) return;
@@ -194,11 +190,15 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
     }
     const parentEntry = parentStack.length > 0 ? parentStack[parentStack.length - 1] : null;
     const parentId = parentEntry ? parentEntry.id : null;
-    const index = parentEntry ? parentEntry.childCount : rootCount;
-    const path = parentEntry
-      ? `${parentEntry.path}/${currentCard.type}.${index}`
-      : `root.${index}/${currentCard.type}`;
-    const id = `n_${hashString(`${path}|${currentCard.type}|${currentCard.title}`)}`;
+
+    // Use explicit ID if present and unique; otherwise mint a fresh one.
+    let id = currentCard.explicitId;
+    if (!id || seenIds.has(id)) {
+      do {
+        id = nanoid(8);
+      } while (seenIds.has(id));
+    }
+    seenIds.add(id);
 
     const card: OSTCard = {
       id,
@@ -221,17 +221,9 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
       tree.rootIds.push(card.id);
     }
 
-    if (parentEntry) {
-      parentEntry.childCount += 1;
-    } else {
-      rootCount += 1;
-    }
-
     parentStack.push({
       id: card.id,
       level: currentCard.level,
-      path,
-      childCount: 0,
     });
     currentCard = null;
     contentLines = [];
@@ -272,8 +264,9 @@ export function serializeTreeToMarkdown(tree: OSTTree, name?: string): string {
 
     const level = HEADING_LEVELS[card.type];
     const prefix = TYPE_PREFIXES[card.type];
+    const idSuffix = card.id ? ` {#${card.id}}` : '';
     const statusSuffix = card.status && card.status !== 'none' ? ` @${card.status}` : '';
-    const heading = `${'#'.repeat(level)} ${prefix} ${card.title}${statusSuffix}`;
+    const heading = `${'#'.repeat(level)} ${prefix} ${card.title}${idSuffix}${statusSuffix}`;
 
     lines.push(heading);
 
