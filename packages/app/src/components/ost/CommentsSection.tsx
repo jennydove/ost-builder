@@ -72,20 +72,30 @@ export function CommentsSection({ cardId }: Props) {
     }
     let cancelled = false;
     setLoading(true);
-    void listShareComments(shareId, cardId)
-      .then((res) => {
+
+    const fetchComments = async () => {
+      try {
+        const res = await listShareComments(shareId, cardId);
         if (cancelled || cardIdRef.current !== cardId) return;
         setComments(res.comments);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setComments([]);
-      })
-      .finally(() => {
+      } catch {
+        // best-effort; keep existing list on transient errors
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    };
+
+    void fetchComments();
+
+    // Poll for new comments while the panel is open and the tab is visible.
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void fetchComments();
+    }, 10000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
   }, [shareId, cardId]);
 

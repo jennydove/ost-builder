@@ -98,6 +98,8 @@ function ActiveCloudShareTracker() {
   const projectName = useOSTStore((state) => state.projectName);
   const setActiveCloudContext = useOSTStore((state) => state.setActiveCloudContext);
   const setCommentCounts = useOSTStore((state) => state.setCommentCounts);
+  const loadFromStoredShare = useOSTStore((state) => state.loadFromStoredShare);
+  const lastReconciledRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabaseConfigured) return;
@@ -112,6 +114,7 @@ function ActiveCloudShareTracker() {
     if (!cloudShareId) {
       setActiveCloudContext(null, false);
       setCommentCounts({});
+      lastReconciledRef.current = null;
       return;
     }
 
@@ -138,13 +141,38 @@ function ActiveCloudShareTracker() {
           counts[c.cardId] = (counts[c.cardId] ?? 0) + 1;
         }
         setCommentCounts(counts);
+
+        // Reconcile cloud markdown → local on first activation of this share.
+        // Only runs once per cloudShareId to avoid clobbering in-progress edits.
+        if (payload && lastReconciledRef.current !== cloudShareId) {
+          lastReconciledRef.current = cloudShareId;
+          if (payload.markdown !== useOSTStore.getState().markdown) {
+            loadFromStoredShare({
+              markdown: payload.markdown,
+              name: payload.name ?? undefined,
+              settings: payload.settings,
+              collapsedIds: payload.collapsedIds,
+            });
+            const liveSourceKey = getActiveLocalSnapshotSourceKey();
+            const liveSnap = liveSourceKey ? findLocalSnapshotBySource(liveSourceKey) : null;
+            if (liveSnap) {
+              updateLocalSnapshot(liveSnap.id, {
+                markdown: payload.markdown,
+                name: payload.name ?? liveSnap.name,
+                settings: payload.settings ?? liveSnap.settings,
+                collapsedIds: payload.collapsedIds ?? liveSnap.collapsedIds ?? [],
+                syncedAt: Date.now(),
+              });
+            }
+          }
+        }
       } catch {
         // best-effort
       }
     })();
 
     return () => { cancelled = true; };
-  }, [markdown, projectName, setActiveCloudContext, setCommentCounts]);
+  }, [markdown, projectName, setActiveCloudContext, setCommentCounts, loadFromStoredShare]);
 
   return null;
 }

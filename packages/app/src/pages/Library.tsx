@@ -205,19 +205,49 @@ export default function Library() {
     await handleCopy(link, 'Share link copied.');
   };
 
-  const openLocalSnapshot = (item: LocalSnapshot) => {
+  const openLocalSnapshot = async (item: LocalSnapshot) => {
     const sourceKey = item.sourceKey || `item:${item.id}`;
     if (!item.sourceKey) {
       updateLocalSnapshot(item.id, { sourceKey, sourceType: item.sourceType || 'manual' });
     }
     setActiveLocalSnapshotSourceKey(sourceKey);
     setActiveSourceKey(sourceKey);
-    loadFromStoredShare({
+
+    let payload: {
+      markdown: string;
+      name?: string;
+      settings?: typeof item.settings;
+      collapsedIds?: string[];
+    } = {
       markdown: item.markdown,
       name: item.name,
       settings: item.settings,
       collapsedIds: item.collapsedIds || [],
-    });
+    };
+
+    const cloudId = getCloudId(item);
+    if (cloudId && cloudUser) {
+      try {
+        const cloud = await getStoredShare(cloudId);
+        payload = {
+          markdown: cloud.markdown,
+          name: cloud.name ?? item.name,
+          settings: cloud.settings ?? item.settings,
+          collapsedIds: cloud.collapsedIds ?? item.collapsedIds ?? [],
+        };
+        updateLocalSnapshot(item.id, {
+          markdown: payload.markdown,
+          name: payload.name ?? item.name,
+          settings: payload.settings,
+          collapsedIds: payload.collapsedIds ?? [],
+          syncedAt: Date.now(),
+        });
+      } catch {
+        // Fall back to local copy if cloud fetch fails
+      }
+    }
+
+    loadFromStoredShare(payload);
     navigate('/');
   };
 
@@ -458,7 +488,7 @@ export default function Library() {
                         variant="outline"
                         onClick={() => {
                           if (isActiveItem) {
-                            openLocalSnapshot(item);
+                            void openLocalSnapshot(item);
                             return;
                           }
                           setPendingLoadItem(item);
@@ -522,7 +552,7 @@ export default function Library() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (pendingLoadItem) openLocalSnapshot(pendingLoadItem);
+                if (pendingLoadItem) void openLocalSnapshot(pendingLoadItem);
                 setPendingLoadItem(null);
               }}
             >
