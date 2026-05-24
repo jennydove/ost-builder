@@ -1,145 +1,177 @@
 import { describe, it, expect, vi } from 'vitest';
 import { resolveRole, type ShareRole } from '../../../../netlify/functions/_shareUtils.mts';
 
-function mockSupabase(memberRole: ShareRole | null) {
-  const single = vi.fn().mockResolvedValue(
+function mockSupabase(memberRole: ShareRole | null, isOrgMember = false) {
+  const memberSingle = vi.fn().mockResolvedValue(
     memberRole
       ? { data: { role: memberRole }, error: null }
       : { data: null, error: { code: 'PGRST116' } },
   );
-  const eq2 = vi.fn().mockReturnValue({ single });
-  const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
-  const select = vi.fn().mockReturnValue({ eq: eq1 });
-  const from = vi.fn().mockReturnValue({ select });
+  const orgSingle = vi.fn().mockResolvedValue(
+    isOrgMember
+      ? { data: { id: 'org-member-1' }, error: null }
+      : { data: null, error: { code: 'PGRST116' } },
+  );
 
-  return { from, _calls: { select, eq1, eq2, single } };
+  const from = vi.fn().mockImplementation((table: string) => {
+    if (table === 'org_members') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({ single: orgSingle }),
+          }),
+        }),
+      };
+    }
+    return {
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({ single: memberSingle }),
+        }),
+      }),
+    };
+  });
+
+  return { from };
 }
 
-function share(visibility: string, ownerId = 'owner-id') {
-  return { visibility, owner_id: ownerId } as Record<string, unknown>;
+function share(visibility: string, ownerId = 'owner-id', orgId: string | null = null) {
+  return { visibility, owner_id: ownerId, org_id: orgId } as Record<string, unknown>;
 }
 
 describe('resolveRole', () => {
-  // --- public visibility ---
+  // --- link-public visibility ---
 
-  describe('public visibility', () => {
+  describe('link-public visibility', () => {
     it('anonymous user gets viewer', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', null, share('public'));
+      const result = await resolveRole(sb as any, 'share-1', null, share('link-public'));
       expect(result).toBe('viewer');
       expect(sb.from).not.toHaveBeenCalled();
     });
 
     it('owner gets owner (short-circuits before DB query)', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', 'owner-id', share('public'));
+      const result = await resolveRole(sb as any, 'share-1', 'owner-id', share('link-public'));
       expect(result).toBe('owner');
       expect(sb.from).not.toHaveBeenCalled();
     });
 
     it('explicit editor member gets editor', async () => {
       const sb = mockSupabase('editor');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('public'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('link-public'));
       expect(result).toBe('editor');
     });
 
     it('explicit viewer member gets viewer', async () => {
       const sb = mockSupabase('viewer');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('public'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('link-public'));
       expect(result).toBe('viewer');
     });
 
     it('non-member authenticated user falls back to viewer', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('public'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('link-public'));
       expect(result).toBe('viewer');
     });
 
     it('owner-via-membership gets owner', async () => {
       const sb = mockSupabase('owner');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('public'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('link-public'));
       expect(result).toBe('owner');
     });
   });
 
-  // --- mozilla visibility ---
+  // --- domain-restricted visibility ---
 
-  describe('mozilla visibility', () => {
+  describe('domain-restricted visibility', () => {
     it('anonymous user is denied', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', null, share('mozilla'));
+      const result = await resolveRole(sb as any, 'share-1', null, share('domain-restricted', 'owner-id', 'org-1'));
       expect(result).toBeNull();
     });
 
     it('owner gets owner (short-circuits before DB query)', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', 'owner-id', share('mozilla'));
+      const result = await resolveRole(sb as any, 'share-1', 'owner-id', share('domain-restricted', 'owner-id', 'org-1'));
       expect(result).toBe('owner');
       expect(sb.from).not.toHaveBeenCalled();
     });
 
     it('explicit editor member gets editor', async () => {
       const sb = mockSupabase('editor');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('mozilla'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('domain-restricted', 'owner-id', 'org-1'));
       expect(result).toBe('editor');
     });
 
     it('explicit viewer member gets viewer', async () => {
       const sb = mockSupabase('viewer');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('mozilla'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('domain-restricted', 'owner-id', 'org-1'));
       expect(result).toBe('viewer');
     });
 
-    it('non-member authenticated user gets viewer (mozilla = org-wide access)', async () => {
-      const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('mozilla'));
+    it('org member (not share member) gets viewer', async () => {
+      const sb = mockSupabase(null, true);
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('domain-restricted', 'owner-id', 'org-1'));
       expect(result).toBe('viewer');
+    });
+
+    it('non-org non-member user is denied', async () => {
+      const sb = mockSupabase(null, false);
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('domain-restricted', 'owner-id', 'org-1'));
+      expect(result).toBeNull();
+    });
+
+    it('domain-restricted without org_id denies non-member', async () => {
+      const sb = mockSupabase(null, true);
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('domain-restricted', 'owner-id', null));
+      expect(result).toBeNull();
     });
 
     it('owner-via-membership gets owner', async () => {
       const sb = mockSupabase('owner');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('mozilla'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('domain-restricted', 'owner-id', 'org-1'));
       expect(result).toBe('owner');
     });
   });
 
-  // --- private visibility ---
+  // --- restricted visibility ---
 
-  describe('private visibility', () => {
+  describe('restricted visibility', () => {
     it('anonymous user is denied', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', null, share('private'));
+      const result = await resolveRole(sb as any, 'share-1', null, share('restricted'));
       expect(result).toBeNull();
     });
 
     it('owner gets owner (short-circuits before DB query)', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', 'owner-id', share('private'));
+      const result = await resolveRole(sb as any, 'share-1', 'owner-id', share('restricted'));
       expect(result).toBe('owner');
       expect(sb.from).not.toHaveBeenCalled();
     });
 
     it('explicit editor member gets editor', async () => {
       const sb = mockSupabase('editor');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('private'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('restricted'));
       expect(result).toBe('editor');
     });
 
     it('explicit viewer member gets viewer', async () => {
       const sb = mockSupabase('viewer');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('private'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('restricted'));
       expect(result).toBe('viewer');
     });
 
     it('non-member authenticated user is denied', async () => {
       const sb = mockSupabase(null);
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('private'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('restricted'));
       expect(result).toBeNull();
     });
 
     it('owner-via-membership gets owner', async () => {
       const sb = mockSupabase('owner');
-      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('private'));
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('restricted'));
       expect(result).toBe('owner');
     });
   });
@@ -147,13 +179,13 @@ describe('resolveRole', () => {
   // --- edge cases ---
 
   describe('edge cases', () => {
-    it('unknown visibility treated as private (non-member denied)', async () => {
+    it('unknown visibility treated as restricted (non-member denied)', async () => {
       const sb = mockSupabase(null);
       const result = await resolveRole(sb as any, 'share-1', 'user-a', share('something-else'));
       expect(result).toBeNull();
     });
 
-    it('unknown visibility treated as private (anonymous denied)', async () => {
+    it('unknown visibility treated as restricted (anonymous denied)', async () => {
       const sb = mockSupabase(null);
       const result = await resolveRole(sb as any, 'share-1', null, share('something-else'));
       expect(result).toBeNull();

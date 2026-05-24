@@ -3,7 +3,7 @@
  * Run against the production preview build: `npm run build && npm test:e2e`
  *
  * Each test is a regression guard for a specific bug we've already fixed:
- *   1. App loads with cards (seeded Mozilla OST)
+ *   1. App loads with cards (seeded default OST)
  *   2. Zoom out button works (broke when pan capture intercepted button clicks)
  *   3. Zoom in button works (same)
  *   4. Card three-dot menu opens (broke when dnd-kit intercepted pointer on buttons)
@@ -18,7 +18,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Canvas interactions', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    // Mozilla OST is seeded on load — wait for at least one card
+    // default OST is seeded on load — wait for at least one card
     await page.waitForSelector('[data-ost-card]', { timeout: 10_000 });
   });
 

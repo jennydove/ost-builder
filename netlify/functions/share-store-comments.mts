@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, resolveRole } from './_shareUtils.mts';
+import { getSupabaseAsService, getSupabaseAsUser, resolveRole } from './_shareUtils.mts';
 import { composeCommentEmail } from './_emailUtils.mts';
 import { CreateCommentBodySchema, parseJsonBody } from './_validation.mts';
 import { checkRateLimit, rateLimitResponse } from './_rateLimit.mts';
@@ -15,7 +15,8 @@ async function sendCommentEmail(opts: {
   if (!key) return;
 
   const from = process.env.RESEND_FROM_ADDRESS || 'OST Builder <onboarding@resend.dev>';
-  const appUrl = process.env.APP_BASE_URL || 'https://mozost.netlify.app';
+  const appUrl = process.env.APP_BASE_URL;
+  if (!appUrl) return;
 
   const payload = composeCommentEmail({ ...opts, from, appUrl });
 
@@ -119,7 +120,8 @@ export default async (request: Request) => {
     });
     if (!commentRl.allowed) return rateLimitResponse(commentRl.retryAfter);
 
-    const { data: inserted, error } = await supabase
+    const userSupabase = getSupabaseAsUser(token!);
+    const { data: inserted, error } = await userSupabase
       .from('share_comments')
       .insert({
         share_id: shareId,
@@ -192,7 +194,8 @@ export default async (request: Request) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { error } = await supabase.from('share_comments').delete().eq('id', commentId);
+    const userSupabase = getSupabaseAsUser(token!);
+    const { error } = await userSupabase.from('share_comments').delete().eq('id', commentId);
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
     return new Response(null, { status: 204 });

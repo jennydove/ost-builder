@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService } from './_shareUtils.mts';
+import { getSupabaseAsService, getSupabaseAsUser } from './_shareUtils.mts';
 import { CreateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -28,7 +28,8 @@ export default async (request: Request) => {
     const pageSize = Math.min(100, Number(url.searchParams.get('pageSize') || '50'));
     const from = (page - 1) * pageSize;
 
-    const { data: rows, error: listError } = await supabase
+    const userSupabase = getSupabaseAsUser(token);
+    const { data: rows, error: listError } = await userSupabase
       .from('shares')
       .select('id, name, visibility, created_at, updated_at')
       .eq('owner_id', user.id)
@@ -75,12 +76,13 @@ export default async (request: Request) => {
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { data: share, error: shareError } = await supabase
+  const userSupabase = getSupabaseAsUser(token);
+  const { data: share, error: shareError } = await userSupabase
     .from('shares')
     .insert({
       markdown: body.markdown,
       name: body.name ?? null,
-      visibility: body.visibility ?? 'public',
+      visibility: body.visibility ?? 'link-public',
       settings: body.settings ?? null,
       collapsed_ids: body.collapsedIds ?? null,
       owner_id: user.id,

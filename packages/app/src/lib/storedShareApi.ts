@@ -9,7 +9,7 @@ export type AuthUser = {
   avatarUrl?: string;
 };
 
-export type ShareVisibility = 'public' | 'mozilla' | 'private';
+export type ShareVisibility = 'link-public' | 'domain-restricted' | 'restricted';
 export type ShareStatus = 'active' | 'expired' | 'deleted';
 
 export type CreateStoredShareInput = {

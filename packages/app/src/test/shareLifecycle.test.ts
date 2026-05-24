@@ -260,7 +260,7 @@ describe('share-store', () => {
       const res = await handler(makeRequest(
         'POST',
         'http://localhost/api/share/store',
-        { markdown: '# Test', name: 'Test OST', visibility: 'public' },
+        { markdown: '# Test', name: 'Test OST', visibility: 'link-public' },
         VALID_TOKEN,
       ));
       const json = await res.json();
@@ -296,7 +296,7 @@ describe('share-store', () => {
       mockSb = createMockSupabase({
         user: USER,
         shares: [
-          { id: 's1', name: 'Share 1', visibility: 'public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+          { id: 's1', name: 'Share 1', visibility: 'link-public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
         ],
       });
       const res = await handler(makeRequest(
@@ -333,7 +333,7 @@ describe('share-store-item', () => {
   describe('GET (read share)', () => {
     it('returns share with viewer role for public+anonymous', async () => {
       mockSb = createMockSupabase({
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
       const res = await handler(makeRequest('GET', 'http://localhost/api/share/store/s1'));
       const json = await res.json();
@@ -345,7 +345,7 @@ describe('share-store-item', () => {
     it('returns share with owner role for owner', async () => {
       mockSb = createMockSupabase({
         user: OWNER_USER,
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
       const res = await handler(makeRequest('GET', 'http://localhost/api/share/store/s1', undefined, VALID_TOKEN));
       const json = await res.json();
@@ -361,7 +361,7 @@ describe('share-store-item', () => {
 
     it('returns 401 for private share without auth', async () => {
       mockSb = createMockSupabase({
-        share: { id: 's1', visibility: 'private', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'restricted', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
       const res = await handler(makeRequest('GET', 'http://localhost/api/share/store/s1'));
       expect(res.status).toBe(401);
@@ -372,8 +372,8 @@ describe('share-store-item', () => {
     it('allows owner to update', async () => {
       mockSb = createMockSupabase({
         user: OWNER_USER,
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
-        updatedShare: { id: 's1', visibility: 'public', updated_at: '2026-01-03T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        updatedShare: { id: 's1', visibility: 'link-public', updated_at: '2026-01-03T00:00:00Z' },
       });
       const res = await handler(makeRequest(
         'PATCH',
@@ -389,7 +389,7 @@ describe('share-store-item', () => {
     it('returns 403 for viewer trying to update', async () => {
       mockSb = createMockSupabase({
         user: USER,
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
         memberRole: null,
       });
       const res = await handler(makeRequest(
@@ -405,13 +405,13 @@ describe('share-store-item', () => {
     it('returns 403 when editor tries to change visibility', async () => {
       mockSb = createMockSupabase({
         user: USER,
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
         memberRole: 'editor',
       });
       const res = await handler(makeRequest(
         'PATCH',
         'http://localhost/api/share/store/s1',
-        { visibility: 'private' },
+        { visibility: 'restricted' },
         VALID_TOKEN,
       ));
       expect(res.status).toBe(403);
@@ -419,7 +419,7 @@ describe('share-store-item', () => {
 
     it('returns 401 without auth', async () => {
       mockSb = createMockSupabase({
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
       const res = await handler(makeRequest(
         'PATCH',
@@ -434,7 +434,7 @@ describe('share-store-item', () => {
     it('allows owner to delete', async () => {
       mockSb = createMockSupabase({
         user: OWNER_USER,
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
       const res = await handler(makeRequest(
         'DELETE',
@@ -448,7 +448,7 @@ describe('share-store-item', () => {
     it('returns 403 for non-owner', async () => {
       mockSb = createMockSupabase({
         user: USER,
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
         memberRole: 'editor',
       });
       const res = await handler(makeRequest(
@@ -462,7 +462,7 @@ describe('share-store-item', () => {
 
     it('returns 401 without auth', async () => {
       mockSb = createMockSupabase({
-        share: { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
       const res = await handler(makeRequest(
         'DELETE',
@@ -484,7 +484,7 @@ describe('share-store-comments', () => {
     handler = mod.default;
   });
 
-  const publicShare = { id: 's1', visibility: 'public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' };
+  const publicShare = { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' };
 
   describe('GET (list comments)', () => {
     it('returns comments for authenticated user on public share', async () => {
@@ -509,7 +509,7 @@ describe('share-store-comments', () => {
 
     it('returns 401 for private share without auth', async () => {
       mockSb = createMockSupabase({
-        share: { ...publicShare, visibility: 'private' },
+        share: { ...publicShare, visibility: 'restricted' },
       });
       const res = await handler(makeRequest(
         'GET',

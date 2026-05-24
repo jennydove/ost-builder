@@ -80,7 +80,7 @@ export default function StoredShareOpen() {
         {state.kind === 'auth-required' && (
           <>
             <p className="text-sm text-muted-foreground">
-              Sign in with your Mozilla Google account to view this share.
+              Sign in to view this share.
             </p>
             <div className="flex gap-2">
               <Button

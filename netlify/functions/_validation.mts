@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const VisibilityEnum = z.enum(['public', 'mozilla', 'private']);
+export const VisibilityEnum = z.enum(['link-public', 'domain-restricted', 'restricted']);
 
 export const ShareSettingsSchema = z
   .object({
