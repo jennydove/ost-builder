@@ -1,5 +1,6 @@
 import type { Config } from '@netlify/functions';
 import { getSupabase } from './_shareUtils.mts';
+import { CreateShareBodySchema, parseJsonBody } from './_validation.mts';
 
 export default async (request: Request) => {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -48,37 +49,35 @@ export default async (request: Request) => {
     return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  try {
-    const body = (await request.json()) as Record<string, unknown>;
+  const parsed = await parseJsonBody(request, CreateShareBodySchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
-    const { data: share, error: shareError } = await supabase
-      .from('shares')
-      .insert({
-        markdown: body.markdown,
-        name: body.name ?? null,
-        visibility: body.visibility ?? 'public',
-        settings: body.settings ?? null,
-        collapsed_ids: body.collapsedIds ?? null,
-        owner_id: user.id,
-      })
-      .select('id')
-      .single();
+  const { data: share, error: shareError } = await supabase
+    .from('shares')
+    .insert({
+      markdown: body.markdown,
+      name: body.name ?? null,
+      visibility: body.visibility ?? 'public',
+      settings: body.settings ?? null,
+      collapsed_ids: body.collapsedIds ?? null,
+      owner_id: user.id,
+    })
+    .select('id')
+    .single();
 
-    if (shareError) return Response.json({ error: shareError.message }, { status: 500 });
+  if (shareError) return Response.json({ error: shareError.message }, { status: 500 });
 
-    const { error: memberError } = await supabase
-      .from('share_members')
-      .insert({ share_id: share.id, user_id: user.id, role: 'owner', invited_by: null });
+  const { error: memberError } = await supabase
+    .from('share_members')
+    .insert({ share_id: share.id, user_id: user.id, role: 'owner', invited_by: null });
 
-    if (memberError) {
-      await supabase.from('shares').delete().eq('id', share.id);
-      return Response.json({ error: memberError.message }, { status: 500 });
-    }
-
-    return Response.json({ id: share.id, link: `/s/${share.id}` });
-  } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
+  if (memberError) {
+    await supabase.from('shares').delete().eq('id', share.id);
+    return Response.json({ error: memberError.message }, { status: 500 });
   }
+
+  return Response.json({ id: share.id, link: `/s/${share.id}` });
 };
 
 export const config: Config = { path: '/api/share/store' };

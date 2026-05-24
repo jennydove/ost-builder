@@ -1,6 +1,7 @@
 import type { Config } from '@netlify/functions';
 import { getSupabase, resolveRole } from './_shareUtils.mts';
 import { composeCommentEmail } from './_emailUtils.mts';
+import { CreateCommentBodySchema, parseJsonBody } from './_validation.mts';
 
 async function sendCommentEmail(opts: {
   to: string;
@@ -103,18 +104,12 @@ export default async (request: Request) => {
       return Response.json({ error: 'Sign in to comment', reason: 'auth_required' }, { status: 401 });
     }
 
-    let parsed: { cardId?: string; body?: string };
-    try {
-      parsed = (await request.json()) as { cardId?: string; body?: string };
-    } catch {
-      return Response.json({ error: 'Invalid JSON' }, { status: 400 });
-    }
-
-    const cardId = (parsed.cardId ?? '').trim();
-    const body = (parsed.body ?? '').trim();
-    if (!cardId) return Response.json({ error: 'Missing cardId' }, { status: 400 });
+    const parsed = await parseJsonBody(request, CreateCommentBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const cardId = parsed.data.cardId.trim();
+    const body = parsed.data.body.trim();
+    if (!cardId) return Response.json({ error: 'cardId required' }, { status: 400 });
     if (!body) return Response.json({ error: 'Comment body required' }, { status: 400 });
-    if (body.length > 2000) return Response.json({ error: 'Comment too long (max 2000 chars)' }, { status: 400 });
 
     const { data: inserted, error } = await supabase
       .from('share_comments')
