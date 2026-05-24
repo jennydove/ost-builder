@@ -84,7 +84,6 @@ export function CloudShareAction() {
           markdown: payload.markdown,
           name: payload.name,
           visibility,
-          ttlDays: 30,
           settings: payload.settings,
           collapsedIds: payload.collapsedIds,
         });

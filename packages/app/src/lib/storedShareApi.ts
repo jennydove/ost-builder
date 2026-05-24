@@ -16,7 +16,6 @@ export type CreateStoredShareInput = {
   markdown: string;
   name?: string;
   visibility: ShareVisibility;
-  ttlDays: 1 | 7 | 30 | 90;
   settings?: ShareSettings;
   collapsedIds?: string[];
 };
@@ -81,13 +80,6 @@ export async function getAuthMe(): Promise<{ user: AuthUser | null; featureEnabl
   return apiFetch('/api/auth/me');
 }
 
-export async function logout(): Promise<void> {
-  await apiFetch('/api/auth/logout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
 export async function createStoredShare(input: CreateStoredShareInput): Promise<{
   id: string;
   link: string;
@@ -132,17 +124,6 @@ export async function updateStoredShare(
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
-  });
-}
-
-export async function extendStoredShare(
-  id: string,
-  ttlDays: 1 | 7 | 30 | 90,
-): Promise<{ id: string; expiresAt: number }> {
-  return apiFetch(`/api/share/store/${encodeURIComponent(id)}/extend`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ttlDays }),
   });
 }
 

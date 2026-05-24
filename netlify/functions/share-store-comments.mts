@@ -1,47 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-
-type ShareRole = 'owner' | 'editor' | 'viewer';
-
-function getSupabase() {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-}
-
-// TODO: extract to _shareUtils.mts — duplicated from share-store-item.mts
-async function resolveRole(
-  supabase: ReturnType<typeof getSupabase>,
-  shareId: string,
-  userId: string | null,
-  share: Record<string, unknown>,
-): Promise<ShareRole | null> {
-  if (share.visibility === 'public') {
-    if (!userId) return 'viewer';
-    if (userId === share.owner_id) return 'owner';
-    const { data } = await supabase
-      .from('share_members')
-      .select('role')
-      .eq('share_id', shareId)
-      .eq('user_id', userId)
-      .single();
-    return data ? (data.role as ShareRole) : 'viewer';
-  }
-
-  if (!userId) return null;
-  if (userId === share.owner_id) return 'owner';
-
-  const { data } = await supabase
-    .from('share_members')
-    .select('role')
-    .eq('share_id', shareId)
-    .eq('user_id', userId)
-    .single();
-
-  if (data) return data.role as ShareRole;
-
-  if (share.visibility === 'mozilla') return 'viewer';
-
-  return null;
-}
+import { getSupabase, resolveRole } from './_shareUtils.mts';
 
 async function sendCommentEmail(opts: {
   to: string;
