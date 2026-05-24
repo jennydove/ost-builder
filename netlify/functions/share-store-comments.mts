@@ -1,5 +1,6 @@
 import type { Config } from '@netlify/functions';
 import { getSupabase, resolveRole } from './_shareUtils.mts';
+import { composeCommentEmail } from './_emailUtils.mts';
 
 async function sendCommentEmail(opts: {
   to: string;
@@ -13,10 +14,8 @@ async function sendCommentEmail(opts: {
 
   const from = process.env.RESEND_FROM_ADDRESS || 'OST Builder <onboarding@resend.dev>';
   const appUrl = process.env.APP_BASE_URL || 'https://mozost.netlify.app';
-  const escapedBody = opts.body
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+
+  const payload = composeCommentEmail({ ...opts, from, appUrl });
 
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -24,19 +23,7 @@ async function sendCommentEmail(opts: {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from,
-      to: opts.to,
-      subject: `${opts.commenterName} commented on "${opts.shareName}"`,
-      html: `
-        <p><strong>${opts.commenterName}</strong> commented on your OST
-        "<a href="${appUrl}/s/${opts.shareId}">${opts.shareName}</a>":</p>
-        <blockquote style="border-left: 3px solid #ddd; padding-left: 12px; color: #444;">
-          ${escapedBody.replace(/\n/g, '<br>')}
-        </blockquote>
-        <p><a href="${appUrl}/s/${opts.shareId}">View on OST Builder</a></p>
-      `,
-    }),
+    body: JSON.stringify(payload),
   });
 }
 
