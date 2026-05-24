@@ -19,9 +19,9 @@ import {
 import { getStoredShare, listShareComments, updateStoredShare } from '@/lib/storedShareApi';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import CdnStats from '@/components/analytics/CdnStats';
-import Index from './pages/Index';
 import NotFound from './pages/NotFound';
 
+const Index = lazy(() => import('./pages/Index'));
 const StoredShareOpen = lazy(() => import('./pages/StoredShareOpen'));
 const Library = lazy(() => import('./pages/Library'));
 
