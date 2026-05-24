@@ -14,18 +14,30 @@ Where Phase B left off and how to resume. This document exists so any Claude ses
 |---|---|---|---|
 | 7. Email HTML escape | ✅ merged | #3 → main | `netlify/functions/_emailUtils.mts` |
 | 8. `docs/rbac.md` + `docs/taxonomy.md` | ✅ merged | #4 → main | All review feedback applied; 3 decisions recorded, 2 low-stakes still default-only |
-| (new) Service-role split | ⏳ next | not started | Prereq for Task 9 — refactor `getSupabase()` into `getSupabaseAsUser(jwt)` + `getSupabaseAsService()`. Todoist `6ghfx9vfvWhP5WW6` |
-| 9. RLS rewrite + Phase G bundled | ⏳ blocked on service-role split | not started | Drop existing buggy policies, write new ones from `docs/rbac.md`, migrate functions, add multi-org schema |
+| (new) Service-role split | ✅ merged | #9 → main | `getSupabaseAsService()` + `getSupabaseAsUser(jwt)` |
+| 9. RLS rewrite + Phase G bundled | ⏳ next | not started | Drop existing buggy policies, write new ones from `docs/rbac.md`, migrate functions, add multi-org schema |
 | 10. zod validation | ✅ merged | #5 → main | `netlify/functions/_validation.mts` |
-| 11. Rate limits + 256 KB payload cap | ✅ merged | #7 → main | Migration `0002_rate_limits.sql` **not yet applied to production Supabase** — needs `supabase db push` |
+| 11. Rate limits + 256 KB payload cap | ✅ merged | #7 → main | Migration `0002_rate_limits.sql` applied to production |
 
 **Phase B tracking:** Todoist parent `6ghCqMXRpmG864w2` (under audit parent `6ghCqHw7Fx7pP2rR`).
 
+**Phase C** — testing safety net. ✅ **Complete.** All 7 PRs landed (#10–#16).
+
+| Item | Status | PR | Notes |
+|---|---|---|---|
+| Fix pre-existing test failures | ✅ merged | #10 | Added `next`/`done` statuses, localStorage polyfill for Node 26 |
+| resolveRole truth table | ✅ merged | #11 | 20 test cases, full visibility × auth × membership matrix |
+| Share lifecycle tests | ✅ merged | #12 | 30 cases covering all 4 Netlify function handlers |
+| ostStore reducer tests | ✅ merged | #13 | 42 cases across all 3 priority tiers |
+| Testing rule + PR template | ✅ merged | #14 | CLAUDE.md updated, `.github/PULL_REQUEST_TEMPLATE.md` added |
+| Coverage config | ✅ merged | #15 | `@vitest/coverage-v8` wired with `npm run test:coverage` |
+| CI + round-trip tests | ✅ merged | #16 | GitHub Actions (unit/build/e2e/lint), 30 round-trip tests |
+
+**Test suite totals:** 314 unit tests (10 files), 16 E2E tests. Pre-commit gate: `npm test && npm run build && npm run test:e2e`.
+
 ## What to do next, in order
 
-1. **Apply migration `0002_rate_limits.sql`** to production via `supabase db push`. (Currently the rate-limiter code in main calls an RPC that doesn't exist in prod yet — it fails open with a `console.warn`, so prod still works, but rate limits are silently ineffective until applied.)
-2. **Service-role split** (Todoist `6ghfx9vfvWhP5WW6`). Refactor only, no behavior change. One small PR.
-3. **Task 9 + Phase G** (Todoist parent `6ghCqWFH26wCGvq2`). The big one — schema migration `0003_phase_g.sql` covering:
+1. **Task 9 + Phase G** (Todoist parent `6ghCqWFH26wCGvq2`). The big one — schema migration `0003_phase_g.sql` covering:
    - Drop the 4 existing buggy RLS policies (`members read private shares`, `members see membership`, `read public shares`, `create requires auth` — see `supabase/migrations/0001_baseline.sql:167-191`)
    - Write the new policies from `docs/rbac.md`
    - Rename visibility values: `'mozilla'` → `'domain-restricted'`, `'public'` → `'link-public'`, `'private'` → `'restricted'` (CHECK constraint + data migration)
