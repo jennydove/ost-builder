@@ -128,6 +128,7 @@ okay that answers my question then
 ### 1.7 Other extensibility friction
 
 - `packages/shared/src/**/*.js` is committed alongside the `.ts` sources — looks like accidentally-versioned build output. Should be `dist/` only.
+- **Vestigial `share_comments.author` column** (surfaced by the Phase A baseline dump). The column exists in Postgres but no live code path writes to it — the Netlify functions only populate `author_name`. Either drop the column in a follow-up migration, or document it as the human-readable display name reserved for a future schema rework. Until decided, it's dead schema surface that invites bugs (a future endpoint could legitimately confuse `author` with `author_name`).
 - ~40 shadcn `components/ui/` files are scaffolded; many (`carousel`, `input-otp`, `drawer`, `breadcrumb`, `navigation-menu`, `pagination`, `menubar`, `chart` with `recharts`) appear unreferenced. They contribute to the 683 KB main bundle.
 	- are these things we should be using or dead weight?
 		- **Dead weight.** shadcn's `npx shadcn add` scaffolds entire component families into your repo as source code — the unused ones are not lazy-loaded, they're just sitting in `src/components/ui/`. They only contribute to the bundle if something imports them. The fast way to find out which to delete: `grep -rL "from '@/components/ui/<name>'" packages/app/src` for each one. Net of that grep, delete the component file *and* its peer dep from `package.json` (e.g., delete `carousel.tsx` → drop `embla-carousel-react`).
@@ -155,6 +156,15 @@ okay that answers my question then
 ### 2.1 No defense in depth — service role bypasses RLS
 
 Every Netlify function uses `SUPABASE_SERVICE_ROLE_KEY`. This bypasses Row Level Security in Postgres. Authorization is enforced exclusively by `resolveRole()` in TypeScript — once in `share-store-item.mts`, once in `share-store-comments.mts` (a copy with a `TODO` to extract).
+
+> **Update (Phase A, 2026-05-23): RLS policies already exist — and are broken.** The Phase A baseline dump (`supabase/migrations/0001_baseline.sql`) revealed 4 RLS policies on `shares` / `share_members` / `share_comments` that the audit missed. They're irrelevant in production today because the service-role key bypasses RLS, but they're not the "blank slate" the recommendation below assumed. Specifically:
+> - `members read private shares` (on `shares`): compares `share_members.share_id = share_members.id` — a same-row tautology that never matches.
+> - `members see membership` (on `share_members`): compares `sm2.share_id = sm2.share_id` — always true; equivalent to no filter.
+> - `read public shares` (on `shares`): requires `auth.uid() IS NOT NULL` — would block anonymous reads of public shares if RLS weren't bypassed.
+> - `create requires auth` (on `shares`, INSERT): correctly checks `auth.uid() = owner_id`.
+> - `read comments on accessible shares` (on `share_comments`): the only fully correct policy.
+>
+> Phase B task 9 needs to **drop and rewrite** these, not "add." Treat the existing policies as untrusted artifacts — they don't reflect the intended RBAC and should be wiped before the new ones land.
 
 Failure modes:
 - A future endpoint adds a query, forgets to call `resolveRole` → arbitrary cross-tenant read/write.
@@ -405,7 +415,7 @@ Each step de-risks the next. Numbered phases group things that can be done in pa
 
 7. **Fix the email HTML-injection.** One-line per call site, plus `escapeHtml` helper. Add a unit test that fails without the fix.
 8. **Write `docs/rbac.md`** — capabilities, role bundles, the visibility × auth matrix from §2.1. Run this past Jenny before policy work.
-9. **Add Supabase RLS policies** matching `docs/rbac.md`. Migrate the Netlify functions to call Supabase as the user (drop service-role for read/update/list). Keep service-role only for `share_members` insert at share creation.
+9. **Drop and rewrite the Supabase RLS policies** to match `docs/rbac.md`. Four policies already exist in the live DB (surfaced by the Phase A baseline dump — see §2.1 Update) but two have tautological joins and one blocks anonymous public reads. Step 1: `DROP POLICY` on all four. Step 2: write the new policy set from `docs/rbac.md`. Step 3: migrate the Netlify functions to call Supabase as the user (drop service-role for read/update/list). Keep service-role only for `share_members` insert at share creation.
 10. **Add zod validation at every Netlify handler boundary.** Drops the "any string passes" footgun on `visibility`.
 11. **Add rate limiting + payload size cap.** Pick `@upstash/ratelimit` or a Supabase table. Email send rate-limited per share.
 
