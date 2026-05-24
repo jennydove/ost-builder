@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { CardType } from '@ost-builder/shared';
 
@@ -18,17 +17,15 @@ const typeColors: Record<CardType, string> = {
 
 export function AddCardButton({ type, onClick, size = 'md' }: AddCardButtonProps) {
   return (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <button
       onClick={onClick}
       className={cn(
-        'flex items-center justify-center rounded-full text-white shadow-lg transition-colors',
+        'flex items-center justify-center rounded-full text-white shadow-lg transition-all duration-150 hover:scale-105 active:scale-95',
         typeColors[type],
         size === 'sm' ? 'w-7 h-7' : 'w-9 h-9',
       )}
     >
       <Plus className={size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'} />
-    </motion.button>
+    </button>
   );
 }

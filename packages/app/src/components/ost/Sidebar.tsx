@@ -1,4 +1,3 @@
-import { motion, AnimatePresence } from 'framer-motion';
 import { X, Target, Lightbulb, Beaker, TrendingUp, Trash2, Info } from 'lucide-react';
 import { useOSTStore } from '@/store/ostStore';
 import { Button } from '@/components/ui/button';
@@ -51,14 +50,9 @@ export function Sidebar() {
   const guidance = OST_GUIDANCE[card.type];
 
   return (
-    <AnimatePresence>
-      <motion.aside
-        initial={{ x: 320, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: 320, opacity: 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="absolute right-0 top-0 bottom-0 w-[420px] bg-card border-l border-border shadow-xl z-[60] flex flex-col"
-      >
+    <aside
+      className="absolute right-0 top-0 bottom-0 w-[420px] bg-card border-l border-border shadow-xl z-[60] flex flex-col animate-slide-in-right"
+    >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -288,7 +282,6 @@ export function Sidebar() {
             Delete Card
           </Button>
         </div>
-      </motion.aside>
-    </AnimatePresence>
+    </aside>
   );
 }
