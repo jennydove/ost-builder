@@ -8,7 +8,7 @@ Run the full test gate before committing any change to the app package:
 npm test && npm run build && npm run test:e2e
 ```
 
-All unit tests and all 16 E2E tests must pass (Chromium + Firefox) before committing. If a test fails, fix the regression first — do not commit around it.
+All unit tests and all 60 E2E tests must pass (Chromium + Firefox) before committing. If a test fails, fix the regression first — do not commit around it.
 
 ## Testing Requirements
 
@@ -38,5 +38,5 @@ For where the audit work left off and what's next, read **`docs/continuity.md`**
 ## Performance Notes
 
 - Dev server (`npm run dev`) has 100+ module requests on first load — normal Vite behavior, not a bug
-- Production build is a single ~684 kB JS bundle (~212 kB gzipped). Run `npm run analyze` to inspect bundle composition.
+- Production build is ~360 kB initial JS (~116 kB gzipped) plus a lazy-loaded editor chunk. Run `npm run analyze` to inspect bundle composition.
 - Canvas panning performance is sensitive to React re-render count — avoid subscriptions to frequently-changing store slices (canvasState) inside card/tree components
