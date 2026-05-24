@@ -121,6 +121,7 @@ export const TreeNode = memo(function TreeNode({ cardId, depth = 0 }: TreeNodePr
         {/* Collapse button */}
         {childIds.length > 0 && (
           <button
+            data-testid={`collapse-${cardId}`}
             onClick={() => toggleCollapsedCard(cardId)}
             className={cn(
               'absolute w-8 h-8 bg-card border border-border rounded-full flex items-center justify-center shadow-sm hover:bg-muted transition-colors z-10',

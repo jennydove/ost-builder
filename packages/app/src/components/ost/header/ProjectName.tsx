@@ -46,6 +46,7 @@ export function ProjectName() {
             onChange={(event) => setNameDraft(event.target.value)}
             onBlur={handleSaveName}
             onKeyDown={handleNameKeyDown}
+            data-testid="project-name-input"
             className="flex h-6 w-64 rounded-md border border-input bg-background px-3 py-1 pr-6 text-xs ring-offset-background placeholder:text-muted-foreground md:text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
             aria-label="Project name"
           />
@@ -54,6 +55,7 @@ export function ProjectName() {
       ) : (
         <button
           type="button"
+          data-testid="project-name-button"
           onClick={handleStartNameEdit}
           className="group relative text-xs text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Edit project name"

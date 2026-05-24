@@ -11,6 +11,7 @@ export function LayoutToggleAction({ compact = false }: LayoutToggleActionProps)
 
   return (
     <Button
+      data-testid="layout-toggle"
       variant="ghost"
       size={compact ? 'icon' : 'sm'}
       className={compact ? 'h-8 w-8' : 'gap-2'}

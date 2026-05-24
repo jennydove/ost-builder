@@ -197,7 +197,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setEditingCard(card.id)}>
+              <DropdownMenuItem data-testid="menu-edit-title" onClick={() => setEditingCard(card.id)}>
                 Edit title
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -227,6 +227,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
+                data-testid="menu-delete"
                 className="text-destructive focus:text-destructive"
                 onClick={() => deleteCard(card.id)}
               >
@@ -256,6 +257,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
                 setEditingCard(null);
               }
             }}
+            data-testid="card-title-input"
             className="w-full text-sm font-medium bg-transparent border-b-2 border-primary outline-none"
             onClick={(e) => e.stopPropagation()}
           />

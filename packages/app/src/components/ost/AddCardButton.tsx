@@ -18,6 +18,7 @@ const typeColors: Record<CardType, string> = {
 export function AddCardButton({ type, onClick, size = 'md' }: AddCardButtonProps) {
   return (
     <button
+      data-testid={`add-${type}-button`}
       onClick={onClick}
       className={cn(
         'flex items-center justify-center rounded-full text-white shadow-lg transition-all duration-150 hover:scale-105 active:scale-95',

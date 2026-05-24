@@ -89,7 +89,7 @@ export function MarkdownEditorAction() {
   return (
     <Dialog open={markdownEditorOpen} onOpenChange={setMarkdownEditorOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2" onClick={handleOpenMarkdownEditor}>
+        <Button data-testid="markdown-editor-trigger" variant="ghost" size="sm" className="gap-2" onClick={handleOpenMarkdownEditor}>
           <Code className="w-4 h-4" />
           <span className="hidden sm:inline">Markdown</span>
         </Button>
@@ -106,6 +106,7 @@ export function MarkdownEditorAction() {
           <div className="min-h-0">
             <Textarea
               ref={markdownRef}
+              data-testid="markdown-textarea"
               value={editedMarkdown}
               onChange={(e) => setEditedMarkdown(e.target.value)}
               className="h-full font-mono text-sm resize-none"
@@ -172,7 +173,7 @@ export function MarkdownEditorAction() {
             <Button variant="outline" onClick={() => setMarkdownEditorOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveMarkdown}>Save Changes</Button>
+            <Button data-testid="markdown-save" onClick={handleSaveMarkdown}>Save Changes</Button>
           </div>
         </DialogFooter>
       </DialogContent>
