@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogIn, LogOut, User, FolderOpen } from 'lucide-react';
+import { LogIn, LogOut, User, FolderOpen, Key } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -96,6 +96,10 @@ export function AccountMenuAction() {
             <DropdownMenuItem onClick={() => navigate('/library')}>
               <FolderOpen className="w-4 h-4 mr-2" />
               Manage shares
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <Key className="w-4 h-4 mr-2" />
+              API tokens
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => void handleLogout()}>
               <LogOut className="w-4 h-4 mr-2" />
