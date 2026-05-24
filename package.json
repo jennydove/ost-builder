@@ -24,6 +24,7 @@
     "preview": "npm -w @ost-builder/app run preview",
     "test": "npm -w @ost-builder/app run test",
     "test:watch": "npm -w @ost-builder/app run test:watch",
+    "test:coverage": "npm -w @ost-builder/app run test:coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
