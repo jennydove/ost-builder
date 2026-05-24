@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabase, resolveRole, type ShareRole } from './_shareUtils.mts';
+import { getSupabaseAsService, resolveRole, type ShareRole } from './_shareUtils.mts';
 import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -26,7 +26,7 @@ export default async (request: Request) => {
   if (!id) return Response.json({ error: 'Missing id' }, { status: 400 });
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-  const supabase = getSupabase();
+  const supabase = getSupabaseAsService();
 
   // Resolve user from token (optional for GET)
   let userId: string | null = null;

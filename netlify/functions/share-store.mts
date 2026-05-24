@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabase } from './_shareUtils.mts';
+import { getSupabaseAsService } from './_shareUtils.mts';
 import { CreateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -9,7 +9,7 @@ import {
 
 export default async (request: Request) => {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-  const supabase = getSupabase();
+  const supabase = getSupabaseAsService();
 
   if (request.method === 'GET') {
     if (!token) return Response.json({ error: 'Authentication required' }, { status: 401 });
