@@ -170,7 +170,7 @@ export function CanvasSyncAction() {
 
       const created = await createStoredShare({
         ...payload,
-        visibility: 'public',
+        visibility: 'link-public',
       });
 
       if (snapshot) {

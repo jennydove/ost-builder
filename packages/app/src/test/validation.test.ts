@@ -16,7 +16,7 @@ describe('CreateShareBodySchema', () => {
     const r = CreateShareBodySchema.safeParse({
       markdown: '# Hi',
       name: 'My OST',
-      visibility: 'public',
+      visibility: 'link-public',
       settings: { layoutDirection: 'vertical' },
       collapsedIds: ['a', 'b'],
     });
@@ -61,7 +61,7 @@ describe('UpdateShareBodySchema', () => {
   });
 
   it('rejects unknown fields', () => {
-    const r = UpdateShareBodySchema.safeParse({ visibility: 'public', injected: true });
+    const r = UpdateShareBodySchema.safeParse({ visibility: 'link-public', injected: true });
     expect(r.success).toBe(false);
   });
 });

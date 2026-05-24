@@ -39,7 +39,7 @@ export function CloudShareAction() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
-  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
+  const [visibility, setVisibility] = useState<'link-public' | 'restricted'>('link-public');
 
   useEffect(() => {
     if (!supabaseConfigured) {
@@ -140,14 +140,14 @@ export function CloudShareAction() {
             <label className="text-xs font-medium text-muted-foreground">Who can open link</label>
             <Select
               value={visibility}
-              onValueChange={(value) => setVisibility(value as 'public' | 'private')}
+              onValueChange={(value) => setVisibility(value as 'link-public' | 'restricted')}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="public">Anyone with link (Mozilla)</SelectItem>
-                <SelectItem value="private">Only me</SelectItem>
+                <SelectItem value="link-public">Anyone with the link</SelectItem>
+                <SelectItem value="restricted">Only invited people</SelectItem>
               </SelectContent>
             </Select>
           </div>

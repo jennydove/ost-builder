@@ -20,7 +20,7 @@ export async function resolveRole(
   userId: string | null,
   share: Record<string, unknown>,
 ): Promise<ShareRole | null> {
-  if (share.visibility === 'public') {
+  if (share.visibility === 'link-public') {
     if (!userId) return 'viewer';
     if (userId === share.owner_id) return 'owner';
     const { data } = await supabase
@@ -44,7 +44,15 @@ export async function resolveRole(
 
   if (data) return data.role as ShareRole;
 
-  if (share.visibility === 'mozilla') return 'viewer';
+  if (share.visibility === 'domain-restricted' && share.org_id) {
+    const { data: orgMember } = await supabase
+      .from('org_members')
+      .select('id')
+      .eq('org_id', share.org_id as string)
+      .eq('user_id', userId)
+      .single();
+    if (orgMember) return 'viewer';
+  }
 
   return null;
 }

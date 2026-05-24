@@ -43,7 +43,7 @@ describe('composeCommentEmail', () => {
     shareName: 'My OST',
     shareId: 'share123',
     body: 'Looks good',
-    appUrl: 'https://mozost.netlify.app',
+    appUrl: 'https://ost.example.com',
   };
 
   it('escapes HTML in commenterName and shareName', () => {
@@ -95,9 +95,9 @@ describe('composeCommentEmail', () => {
     const payload = composeCommentEmail({
       ...base,
       shareId: 'abc def',
-      appUrl: 'https://mozost.netlify.app',
+      appUrl: 'https://ost.example.com',
     });
-    expect(payload.html).toContain('https://mozost.netlify.app/s/abc%20def');
+    expect(payload.html).toContain('https://ost.example.com/s/abc%20def');
   });
 
   it('renders newlines in body as <br>', () => {

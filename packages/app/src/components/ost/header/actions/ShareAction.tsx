@@ -27,7 +27,7 @@ import {
   updateLocalSnapshot,
 } from '@/lib/localSnapshots';
 
-type Visibility = 'public' | 'mozilla' | 'private';
+type Visibility = 'link-public' | 'domain-restricted' | 'restricted';
 
 function resolveCloudId(sourceKey: string | null, linkedCloudId?: string): string | null {
   if (linkedCloudId) return linkedCloudId;
@@ -41,7 +41,7 @@ export function ShareAction() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
-  const [visibility, setVisibility] = useState<Visibility>('mozilla');
+  const [visibility, setVisibility] = useState<Visibility>('domain-restricted');
 
   useEffect(() => {
     if (!supabaseConfigured) {
@@ -152,9 +152,9 @@ export function ShareAction() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="public">Anyone with the link</SelectItem>
-              <SelectItem value="mozilla">Mozilla only</SelectItem>
-              <SelectItem value="private">Only me</SelectItem>
+              <SelectItem value="link-public">Anyone with the link</SelectItem>
+              <SelectItem value="domain-restricted">Organization members</SelectItem>
+              <SelectItem value="restricted">Only invited people</SelectItem>
             </SelectContent>
           </Select>
         </div>

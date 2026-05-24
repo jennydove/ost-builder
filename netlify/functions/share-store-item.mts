@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, resolveRole, type ShareRole } from './_shareUtils.mts';
+import { getSupabaseAsService, getSupabaseAsUser, resolveRole, type ShareRole } from './_shareUtils.mts';
 import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -94,7 +94,8 @@ export default async (request: Request) => {
       updates.visibility = body.visibility;
     }
 
-    const { data, error } = await supabase
+    const userSupabase = getSupabaseAsUser(token!);
+    const { data, error } = await userSupabase
       .from('shares')
       .update(updates)
       .eq('id', id)
@@ -111,7 +112,8 @@ export default async (request: Request) => {
 
   if (request.method === 'DELETE') {
     if (role !== 'owner') return Response.json({ error: 'Only the owner can delete' }, { status: 403 });
-    await supabase.from('shares').delete().eq('id', id);
+    const userSupabase = getSupabaseAsUser(token!);
+    await userSupabase.from('shares').delete().eq('id', id);
     return new Response(null, { status: 204 });
   }
 
