@@ -2,12 +2,20 @@ import { createClient } from '@supabase/supabase-js';
 
 export type ShareRole = 'owner' | 'editor' | 'viewer';
 
-export function getSupabase() {
+export function getSupabaseAsService() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
 
+// Creates a client that acts as the authenticated user — RLS policies apply.
+// Requires SUPABASE_ANON_KEY in env (add to Netlify dashboard before Task 9 lands).
+export function getSupabaseAsUser(jwt: string) {
+  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  });
+}
+
 export async function resolveRole(
-  supabase: ReturnType<typeof getSupabase>,
+  supabase: ReturnType<typeof getSupabaseAsService>,
   shareId: string,
   userId: string | null,
   share: Record<string, unknown>,

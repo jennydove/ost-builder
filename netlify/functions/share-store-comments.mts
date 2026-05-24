@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabase, resolveRole } from './_shareUtils.mts';
+import { getSupabaseAsService, resolveRole } from './_shareUtils.mts';
 import { composeCommentEmail } from './_emailUtils.mts';
 import { CreateCommentBodySchema, parseJsonBody } from './_validation.mts';
 import { checkRateLimit, rateLimitResponse } from './_rateLimit.mts';
@@ -38,7 +38,7 @@ export default async (request: Request) => {
   if (!shareId) return Response.json({ error: 'Missing share id' }, { status: 400 });
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-  const supabase = getSupabase();
+  const supabase = getSupabaseAsService();
 
   let userId: string | null = null;
   let userName: string | null = null;

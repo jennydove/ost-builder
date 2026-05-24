@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabase } from './_shareUtils.mts';
+import { getSupabaseAsService } from './_shareUtils.mts';
 
 export default async (request: Request) => {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -7,7 +7,7 @@ export default async (request: Request) => {
     return Response.json({ user: null, featureEnabled: false });
   }
 
-  const { data: { user }, error } = await getSupabase().auth.getUser(token);
+  const { data: { user }, error } = await getSupabaseAsService().auth.getUser(token);
   if (error || !user) {
     return Response.json({ user: null, featureEnabled: false });
   }
