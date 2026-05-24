@@ -2,6 +2,7 @@ import type { Config } from '@netlify/functions';
 import { getSupabase, resolveRole } from './_shareUtils.mts';
 import { composeCommentEmail } from './_emailUtils.mts';
 import { CreateCommentBodySchema, parseJsonBody } from './_validation.mts';
+import { checkRateLimit, rateLimitResponse } from './_rateLimit.mts';
 
 async function sendCommentEmail(opts: {
   to: string;
@@ -111,6 +112,13 @@ export default async (request: Request) => {
     if (!cardId) return Response.json({ error: 'cardId required' }, { status: 400 });
     if (!body) return Response.json({ error: 'Comment body required' }, { status: 400 });
 
+    const commentRl = await checkRateLimit(supabase, {
+      key: `comment:create:${userId}`,
+      limit: 60,
+      windowSeconds: 60,
+    });
+    if (!commentRl.allowed) return rateLimitResponse(commentRl.retryAfter);
+
     const { data: inserted, error } = await supabase
       .from('share_comments')
       .insert({
@@ -125,10 +133,17 @@ export default async (request: Request) => {
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
-    // Fire-and-forget owner notification
+    // Fire-and-forget owner notification, capped to 5 emails per share per minute
     if (userId !== share.owner_id) {
       void (async () => {
         try {
+          const emailRl = await checkRateLimit(supabase, {
+            key: `email:share:${shareId}`,
+            limit: 5,
+            windowSeconds: 60,
+          });
+          if (!emailRl.allowed) return;
+
           const { data: ownerData } = await supabase.auth.admin.getUserById(share.owner_id as string);
           if (ownerData?.user?.email) {
             await sendCommentEmail({

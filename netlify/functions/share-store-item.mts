@@ -1,6 +1,11 @@
 import type { Config } from '@netlify/functions';
 import { getSupabase, resolveRole, type ShareRole } from './_shareUtils.mts';
 import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
+import {
+  checkMarkdownSize,
+  checkRateLimit,
+  rateLimitResponse,
+} from './_rateLimit.mts';
 
 function rowToPayload(row: Record<string, unknown>, role: ShareRole) {
   return {
@@ -46,6 +51,14 @@ export default async (request: Request) => {
 
   if (request.method === 'GET') {
     if (!role) return Response.json({ error: 'Sign in to view this share', reason: 'auth_required' }, { status: 401 });
+
+    // Per-IP read throttle for anonymous; per-user for authenticated.
+    const rateKey = userId
+      ? `share:read:user:${userId}`
+      : `share:read:ip:${request.headers.get('x-forwarded-for') ?? request.headers.get('x-nf-client-connection-ip') ?? 'unknown'}`;
+    const rl = await checkRateLimit(supabase, { key: rateKey, limit: 300, windowSeconds: 60 });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
     return Response.json(rowToPayload(share as Record<string, unknown>, role));
   }
 
@@ -57,6 +70,18 @@ export default async (request: Request) => {
     const parsed = await parseJsonBody(request, UpdateShareBodySchema);
     if (!parsed.ok) return parsed.response;
     const body = parsed.data;
+
+    if (body.markdown !== undefined) {
+      const sizeCheck = checkMarkdownSize(body.markdown);
+      if (!sizeCheck.ok) return sizeCheck.response;
+    }
+
+    const rl = await checkRateLimit(supabase, {
+      key: `share:update:${userId}`,
+      limit: 120,
+      windowSeconds: 60,
+    });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.markdown !== undefined) updates.markdown = body.markdown;
