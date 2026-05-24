@@ -9,6 +9,8 @@ export type CardStatus =
   | 'ideating' | 'testing' | 'dropped'
   // experiment
   | 'planned' | 'running' | 'complete'
+  // generic
+  | 'next' | 'done'
   | 'none';
 
 export type LayoutDirection = 'vertical' | 'horizontal';

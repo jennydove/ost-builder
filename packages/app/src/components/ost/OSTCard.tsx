@@ -69,6 +69,9 @@ const statusConfig: Record<
   planned:         { label: 'Planned',        icon: <Clock className="w-3 h-3" />,       className: 'text-status-next' },
   running:         { label: 'Running',        icon: <Play className="w-3 h-3" />,        className: 'text-primary' },
   complete:        { label: 'Complete',       icon: <Check className="w-3 h-3" />,       className: 'text-status-success' },
+  // generic
+  next:            { label: 'Next',           icon: <Play className="w-3 h-3" />,        className: 'text-primary' },
+  done:            { label: 'Done',           icon: <CheckCheck className="w-3 h-3" />,  className: 'text-status-success' },
   none:            { label: '',               icon: null,                                  className: '' },
 };
 

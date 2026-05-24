@@ -8,7 +8,7 @@ import {
 
 describe('localSnapshots', () => {
   beforeEach(() => {
-    localStorage.clear();
+    window.localStorage.clear();
   });
 
   it('upserts a rolling draft at a stable source key', () => {
