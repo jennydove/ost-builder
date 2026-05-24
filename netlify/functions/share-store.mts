@@ -1,9 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-}
+import { getSupabase } from './_shareUtils.mts';
 
 export default async (request: Request) => {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');

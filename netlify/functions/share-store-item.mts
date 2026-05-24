@@ -1,11 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-
-type ShareRole = 'owner' | 'editor' | 'viewer';
-
-function getSupabase() {
-  return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-}
+import { getSupabase, resolveRole, type ShareRole } from './_shareUtils.mts';
 
 function rowToPayload(row: Record<string, unknown>, role: ShareRole) {
   return {
@@ -19,44 +13,6 @@ function rowToPayload(row: Record<string, unknown>, role: ShareRole) {
     updatedAt: new Date(row.updated_at as string).getTime(),
     role,
   };
-}
-
-async function resolveRole(
-  supabase: ReturnType<typeof getSupabase>,
-  shareId: string,
-  userId: string | null,
-  share: Record<string, unknown>,
-): Promise<ShareRole | null> {
-  // Public: anyone can view without auth
-  if (share.visibility === 'public') {
-    if (!userId) return 'viewer';
-    if (userId === share.owner_id) return 'owner';
-    const { data } = await supabase
-      .from('share_members')
-      .select('role')
-      .eq('share_id', shareId)
-      .eq('user_id', userId)
-      .single();
-    return data ? (data.role as ShareRole) : 'viewer';
-  }
-
-  // Mozilla/private: must be logged in
-  if (!userId) return null;
-  if (userId === share.owner_id) return 'owner';
-
-  const { data } = await supabase
-    .from('share_members')
-    .select('role')
-    .eq('share_id', shareId)
-    .eq('user_id', userId)
-    .single();
-
-  if (data) return data.role as ShareRole;
-
-  // Mozilla: any logged-in Mozilla user can view
-  if (share.visibility === 'mozilla') return 'viewer';
-
-  return null;
 }
 
 export default async (request: Request) => {
