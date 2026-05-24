@@ -1,5 +1,6 @@
 import type { Config } from '@netlify/functions';
 import { getSupabase, resolveRole, type ShareRole } from './_shareUtils.mts';
+import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
 
 function rowToPayload(row: Record<string, unknown>, role: ShareRole) {
   return {
@@ -53,16 +54,17 @@ export default async (request: Request) => {
   if (!role || role === 'viewer') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   if (request.method === 'PATCH') {
-    const text = await request.text();
-    const body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    const parsed = await parseJsonBody(request, UpdateShareBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.data;
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if ('markdown' in body) updates.markdown = body.markdown;
-    if ('name' in body) updates.name = body.name;
-    if ('settings' in body) updates.settings = body.settings;
-    if ('collapsedIds' in body) updates.collapsed_ids = body.collapsedIds;
+    if (body.markdown !== undefined) updates.markdown = body.markdown;
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.settings !== undefined) updates.settings = body.settings;
+    if (body.collapsedIds !== undefined) updates.collapsed_ids = body.collapsedIds;
     // Only owner can change visibility
-    if ('visibility' in body) {
+    if (body.visibility !== undefined) {
       if (role !== 'owner') return Response.json({ error: 'Only the owner can change visibility' }, { status: 403 });
       updates.visibility = body.visibility;
     }

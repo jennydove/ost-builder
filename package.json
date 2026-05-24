@@ -30,6 +30,7 @@
   "dependencies": {
     "@netlify/functions": "^5.2.2",
     "@supabase/supabase-js": "^2.50.0",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "zod": "^3.25.76"
   }
 }
