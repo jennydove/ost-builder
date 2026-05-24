@@ -29,7 +29,7 @@ OST (Opportunity Solution Tree) builder — React + Vite frontend, Netlify Funct
 - `packages/app` — React frontend
 - `packages/shared` — shared types + markdown serialization
 - `packages/cli` — npm CLI tool (legacy auth/library commands disabled pending Phase E PAT-based rebuild — see `docs/codebase-audit-2026-05-22.md`)
-- `netlify/functions/` — live backend (Supabase JWT auth, service-role DB access — Phase B will add RLS)
+- `netlify/functions/` — live backend (Supabase JWT auth, RLS defense-in-depth)
 
 ## Current Work Context
 
@@ -38,5 +38,5 @@ For where the audit work left off and what's next, read **`docs/continuity.md`**
 ## Performance Notes
 
 - Dev server (`npm run dev`) has 100+ module requests on first load — normal Vite behavior, not a bug
-- Production build is a single ~684 kB JS bundle (~212 kB gzipped). Phase D will diagnose with rollup-plugin-visualizer and code-split.
+- Production build is a single ~684 kB JS bundle (~212 kB gzipped). Run `npm run analyze` to inspect bundle composition.
 - Canvas panning performance is sensitive to React re-render count — avoid subscriptions to frequently-changing store slices (canvasState) inside card/tree components
