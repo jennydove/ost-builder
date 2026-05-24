@@ -1,6 +1,11 @@
 import type { Config } from '@netlify/functions';
 import { getSupabase } from './_shareUtils.mts';
 import { CreateShareBodySchema, parseJsonBody } from './_validation.mts';
+import {
+  checkMarkdownSize,
+  checkRateLimit,
+  rateLimitResponse,
+} from './_rateLimit.mts';
 
 export default async (request: Request) => {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -10,6 +15,13 @@ export default async (request: Request) => {
     if (!token) return Response.json({ error: 'Authentication required' }, { status: 401 });
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) return Response.json({ error: 'Invalid token' }, { status: 401 });
+
+    const rl = await checkRateLimit(supabase, {
+      key: `share:list:${user.id}`,
+      limit: 300,
+      windowSeconds: 60,
+    });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
     const url = new URL(request.url);
     const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
@@ -52,6 +64,16 @@ export default async (request: Request) => {
   const parsed = await parseJsonBody(request, CreateShareBodySchema);
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
+
+  const sizeCheck = checkMarkdownSize(body.markdown);
+  if (!sizeCheck.ok) return sizeCheck.response;
+
+  const rl = await checkRateLimit(supabase, {
+    key: `share:create:${user.id}`,
+    limit: 60,
+    windowSeconds: 60,
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { data: share, error: shareError } = await supabase
     .from('shares')
