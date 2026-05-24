@@ -295,10 +295,25 @@ Every other endpoint calls Supabase **as the user**. The `getSupabase()` helper 
 
 Not implementing now. The capability `card:read(card_id)` exists so when product wants "this opportunity is only visible to leadership," we add a `card_permissions(tree_id, card_id, user_id, can_view, can_edit)` table and a single policy on `tree_comments` / future card_metadata tables. No RLS rewrite needed elsewhere.
 
-## Decisions still open (for review)
+## Decisions
 
-1. **Anonymous comment visibility on `link-public` trees.** The function currently returns 401 if there's no JWT; the RLS policy above would allow it. Keep auth-required for comment reads (recommended), until we have spam controls?
-2. **Visibility-change enforcement.** RLS is row-level, not column-level. Keep the visibility check in app code (recommended) or wrap in a stored procedure?
-3. **Service-role split.** Refactor `getSupabase()` into `AsUser` / `AsService` as part of Task 9 (recommended) or before?
-4. **"Last owner" enforcement.** Trigger to prevent removing the last owner of a tree, or app-code check? Recommend: trigger — runs regardless of which endpoint or future CLI path makes the call.
-5. **Phase H rename timing.** Rename `shares` → `trees` etc. — bundle with Phase G migration (one big schema change, deploy once) or keep separate? Recommend: separate Phase H. Visibility/org work is already a meaningful schema change; piling a full rename on top compounds risk.
+### Decided
+
+1. **Anonymous users cannot comment.** Comment reads and writes both require auth. `link-public` trees are anonymously *viewable*, but commenting requires sign-in.
+2. **Visibility-change enforcement stays in app code.** Server-side check in the PATCH handler. No stored procedure.
+3. **Service-role split happens *before* Task 9.** Refactor `getSupabase()` into `getSupabaseAsUser(jwt)` and `getSupabaseAsService()` as its own prerequisite step. Tracked as Todoist task (see Phase B reordering note below).
+
+### Still open (low-stakes — defaults shown)
+
+4. **"Last owner" enforcement.** Trigger to prevent removing the last owner of a tree, or app-code check? Default: trigger (runs regardless of which endpoint or future CLI path makes the call).
+5. **Phase H rename timing.** Rename `shares` → `trees` etc. — bundle with Phase G migration (one big schema change, deploy once) or keep separate? Default: separate Phase H. Visibility/org work is already a meaningful schema change; piling a full rename on top compounds risk.
+
+## Phase B reordering (per Jenny, 2026-05-24)
+
+Task 9 is being prioritized as the next thing after Task 8 lands. New sequence:
+
+1. **Task 7** — email HTML escape (independent, can merge any time)
+2. **Task 8** — this doc lands
+3. **(New) Service-role split** — `getSupabaseAsUser(jwt)` / `getSupabaseAsService()` refactor, no behavior change yet
+4. **Task 9** — drop existing buggy RLS policies, write the new ones from this doc, migrate Netlify functions to call as user where appropriate. Bundles Phase G (multi-org schema + visibility-value migration).
+5. **Task 10 / Task 11** — zod validation + rate limits, in either order (already up as PRs #5/#6).
