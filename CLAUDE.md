@@ -2,19 +2,22 @@
 
 ## Before Every Commit
 
-Always run the E2E guard tests before committing any change to the app package:
+Run the full test gate before committing any change to the app package:
 
 ```
-npm run build && npm run test:e2e
+npm test && npm run build && npm run test:e2e
 ```
 
-All 16 tests must pass (Chromium + Firefox) before committing. If a test fails, fix the regression first — do not commit around it.
+All unit tests and all 16 E2E tests must pass (Chromium + Firefox) before committing. If a test fails, fix the regression first — do not commit around it.
 
-The tests cover the interactions that have repeatedly regressed:
-- Zoom controls responding to clicks
-- Card three-dot menu opening
-- Middle-click and left-click-drag canvas panning
-- Card drag not triggering canvas pan
+## Testing Requirements
+
+Every change must include appropriate tests:
+
+- **New Netlify function or endpoint:** at least one auth test (anonymous denied / wrong-role denied / owner allowed) and one happy-path test
+- **New `ostStore` action:** a reducer test asserting the post-state
+- **New user-visible UI feature:** at least one E2E or component test of the happy path
+- **Bug fix:** a test that fails without the fix and passes with it
 
 ## Project Overview
 
