@@ -33,7 +33,8 @@ function LibraryAutoSave() {
   const experimentLayout = useOSTStore((state) => state.experimentLayout);
   const viewDensity = useOSTStore((state) => state.viewDensity);
   const collapsedCardIds = useOSTStore((state) => state.collapsedCardIds);
-  const timerRef = useRef<number | null>(null);
+  const localTimerRef = useRef<number | null>(null);
+  const cloudTimerRef = useRef<number | null>(null);
   const sessionRef = useRef<Session | null>(null);
 
   useEffect(() => {
@@ -48,16 +49,17 @@ function LibraryAutoSave() {
   }, []);
 
   useEffect(() => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
+    if (localTimerRef.current) window.clearTimeout(localTimerRef.current);
 
-    timerRef.current = window.setTimeout(() => {
-      const payload = {
-        name: projectName,
-        markdown,
-        settings: { layoutDirection, experimentLayout, viewDensity },
-        collapsedIds: collapsedCardIds,
-      };
+    const payload = {
+      name: projectName,
+      markdown,
+      settings: { layoutDirection, experimentLayout, viewDensity },
+      collapsedIds: collapsedCardIds,
+    };
 
+    // Fast local save (1s debounce)
+    localTimerRef.current = window.setTimeout(() => {
       const activeSourceKey = getActiveLocalSnapshotSourceKey();
       let saved = null;
       if (activeSourceKey) {
@@ -70,23 +72,26 @@ function LibraryAutoSave() {
         saved = upsertDraftSnapshot(payload);
       }
 
-      // Auto-sync to cloud if this snapshot is linked to a cloud share
+      // Throttled cloud sync (5s debounce, separate timer)
       if (supabaseConfigured && sessionRef.current && saved?.cloudShareId) {
-        void updateStoredShare(saved.cloudShareId, {
-          markdown: payload.markdown,
-          name: payload.name,
-          settings: payload.settings,
-          collapsedIds: payload.collapsedIds,
-        }).then(() => {
-          if (saved) updateLocalSnapshot(saved.id, { syncedAt: Date.now() });
-        }).catch(() => {
-          // Best-effort; local is already saved
-        });
+        const shareId = saved.cloudShareId;
+        const snapId = saved.id;
+        if (cloudTimerRef.current) window.clearTimeout(cloudTimerRef.current);
+        cloudTimerRef.current = window.setTimeout(() => {
+          void updateStoredShare(shareId, {
+            markdown: payload.markdown,
+            name: payload.name,
+            settings: payload.settings,
+            collapsedIds: payload.collapsedIds,
+          }).then(() => {
+            updateLocalSnapshot(snapId, { syncedAt: Date.now() });
+          }).catch(() => {});
+        }, 4000);
       }
     }, 1000);
 
     return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
+      if (localTimerRef.current) window.clearTimeout(localTimerRef.current);
     };
   }, [markdown, projectName, layoutDirection, experimentLayout, viewDensity, collapsedCardIds]);
 
@@ -94,8 +99,6 @@ function LibraryAutoSave() {
 }
 
 function ActiveCloudShareTracker() {
-  const markdown = useOSTStore((state) => state.markdown);
-  const projectName = useOSTStore((state) => state.projectName);
   const setActiveCloudContext = useOSTStore((state) => state.setActiveCloudContext);
   const setCommentCounts = useOSTStore((state) => state.setCommentCounts);
   const loadFromStoredShare = useOSTStore((state) => state.loadFromStoredShare);
@@ -117,6 +120,8 @@ function ActiveCloudShareTracker() {
       lastReconciledRef.current = null;
       return;
     }
+
+    if (lastReconciledRef.current === cloudShareId) return;
 
     let cancelled = false;
 
@@ -142,9 +147,7 @@ function ActiveCloudShareTracker() {
         }
         setCommentCounts(counts);
 
-        // Reconcile cloud markdown → local on first activation of this share.
-        // Only runs once per cloudShareId to avoid clobbering in-progress edits.
-        if (payload && lastReconciledRef.current !== cloudShareId) {
+        if (payload) {
           lastReconciledRef.current = cloudShareId;
           if (payload.markdown !== useOSTStore.getState().markdown) {
             loadFromStoredShare({
@@ -172,7 +175,7 @@ function ActiveCloudShareTracker() {
     })();
 
     return () => { cancelled = true; };
-  }, [markdown, projectName, setActiveCloudContext, setCommentCounts, loadFromStoredShare]);
+  }, [setActiveCloudContext, setCommentCounts, loadFromStoredShare]);
 
   return null;
 }
