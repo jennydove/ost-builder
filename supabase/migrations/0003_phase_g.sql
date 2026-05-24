@@ -36,14 +36,6 @@ ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 
 GRANT ALL ON TABLE public.organizations TO anon, authenticated, service_role;
 
-CREATE POLICY org_select_member ON public.organizations FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.org_members om
-      WHERE om.org_id = organizations.id AND om.user_id = auth.uid()
-    )
-  );
-
 CREATE TABLE IF NOT EXISTS public.org_members (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   org_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -61,6 +53,15 @@ CREATE INDEX IF NOT EXISTS org_members_org_id_user_id_idx ON public.org_members 
 CREATE INDEX IF NOT EXISTS org_members_user_id_org_id_idx ON public.org_members (user_id, org_id);
 
 GRANT ALL ON TABLE public.org_members TO anon, authenticated, service_role;
+
+-- org_members must exist before these policies reference it
+CREATE POLICY org_select_member ON public.organizations FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.org_members om
+      WHERE om.org_id = organizations.id AND om.user_id = auth.uid()
+    )
+  );
 
 CREATE POLICY org_members_select ON public.org_members FOR SELECT
   USING (
