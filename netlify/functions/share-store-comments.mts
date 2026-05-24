@@ -1,7 +1,7 @@
 import type { Config } from '@netlify/functions';
 import { getSupabaseAsService, getSupabaseAsUser, resolveRole } from './_shareUtils.mts';
 import { composeCommentEmail } from './_emailUtils.mts';
-import { CreateCommentBodySchema, parseJsonBody } from './_validation.mts';
+import { CreateCommentBodySchema, UpdateCommentBodySchema, parseJsonBody } from './_validation.mts';
 import { checkRateLimit, rateLimitResponse } from './_rateLimit.mts';
 
 async function sendCommentEmail(opts: {
@@ -199,6 +199,48 @@ export default async (request: Request) => {
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
     return new Response(null, { status: 204 });
+  }
+
+  if (request.method === 'PATCH') {
+    if (!userId) return Response.json({ error: 'Authentication required' }, { status: 401 });
+    if (!commentId) return Response.json({ error: 'Missing comment id' }, { status: 400 });
+
+    const { data: existing } = await supabase
+      .from('share_comments')
+      .select('id, user_id')
+      .eq('id', commentId)
+      .eq('share_id', shareId)
+      .single();
+
+    if (!existing) return Response.json({ error: 'Not found' }, { status: 404 });
+
+    if (existing.user_id !== userId) {
+      return Response.json({ error: 'Only the author can edit a comment' }, { status: 403 });
+    }
+
+    const parsed = await parseJsonBody(request, UpdateCommentBodySchema);
+    if (!parsed.ok) return parsed.response;
+
+    const userSupabase = getSupabaseAsUser(token!);
+    const { data: updated, error } = await userSupabase
+      .from('share_comments')
+      .update({ body: parsed.data.body.trim() })
+      .eq('id', commentId)
+      .select('id, card_id, user_id, author_name, body, created_at')
+      .single();
+
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+
+    return Response.json({
+      comment: {
+        id: updated.id,
+        cardId: updated.card_id,
+        userId: updated.user_id,
+        authorName: updated.author_name,
+        body: updated.body,
+        createdAt: new Date(updated.created_at as string).getTime(),
+      },
+    });
   }
 
   return Response.json({ error: 'Method not allowed' }, { status: 405 });

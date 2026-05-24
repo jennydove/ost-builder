@@ -163,6 +163,21 @@ export async function postShareComment(
   });
 }
 
+export async function updateShareComment(
+  shareId: string,
+  commentId: string,
+  body: string,
+): Promise<{ comment: ShareComment }> {
+  return apiFetch(
+    `/api/share/store/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body }),
+    },
+  );
+}
+
 export async function deleteShareComment(shareId: string, commentId: string): Promise<void> {
   await apiFetch(
     `/api/share/store/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,

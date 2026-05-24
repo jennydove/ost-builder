@@ -119,7 +119,7 @@ export function ShareAction() {
         onClick={() =>
           void supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: window.location.origin },
+            options: { redirectTo: window.location.href },
           })
         }
       >

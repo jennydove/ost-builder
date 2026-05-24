@@ -114,7 +114,7 @@ export function CloudShareAction() {
         variant="ghost"
         size="sm"
         className="gap-2"
-        onClick={() => void supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
+        onClick={() => void supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } })}
       >
         <CloudUpload className="w-4 h-4" />
         <span className="hidden sm:inline">Cloud share</span>

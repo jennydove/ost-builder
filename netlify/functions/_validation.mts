@@ -37,6 +37,12 @@ export const CreateCommentBodySchema = z
   })
   .strict();
 
+export const UpdateCommentBodySchema = z
+  .object({
+    body: z.string().min(1).max(2000),
+  })
+  .strict();
+
 export type ValidationFailure = {
   ok: false;
   response: Response;

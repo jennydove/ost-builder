@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useOSTStore } from '@/store/ostStore';
@@ -8,6 +8,7 @@ import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import {
   listShareComments,
   postShareComment,
+  updateShareComment,
   deleteShareComment,
   type ShareComment,
 } from '@/lib/storedShareApi';
@@ -50,6 +51,8 @@ export function CommentsSection({ cardId }: Props) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [draft, setDraft] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
   const [user, setUser] = useState<User | null>(null);
   const cardIdRef = useRef(cardId);
   cardIdRef.current = cardId;
@@ -134,6 +137,20 @@ export function CommentsSection({ cardId }: Props) {
     }
   };
 
+  const handleEdit = async (commentId: string) => {
+    const body = editDraft.trim();
+    if (!body || !shareId) return;
+    const original = comments.find((c) => c.id === commentId);
+    setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, body } : c)));
+    setEditingId(null);
+    try {
+      await updateShareComment(shareId, commentId, body);
+    } catch {
+      if (original) setComments((prev) => prev.map((c) => (c.id === commentId ? original : c)));
+      toast({ title: 'Could not update comment', variant: 'destructive' });
+    }
+  };
+
   const handleSignIn = async () => {
     if (!supabaseConfigured) return;
     await supabase.auth.signInWithOAuth({
@@ -159,6 +176,8 @@ export function CommentsSection({ cardId }: Props) {
         <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
           {comments.map((c) => {
             const canDelete = user?.id === c.userId || isOwner;
+            const canEdit = user?.id === c.userId;
+            const isEditingThis = editingId === c.id;
             return (
               <div key={c.id} className="flex gap-2 group">
                 <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground shrink-0">
@@ -174,18 +193,57 @@ export function CommentsSection({ cardId }: Props) {
                         {formatRelative(c.createdAt)}
                       </span>
                     </div>
-                    {canDelete && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 opacity-0 group-hover:opacity-100"
-                        onClick={() => void handleDelete(c.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-0.5">
+                      {canEdit && !isEditingThis && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                          onClick={() => { setEditingId(c.id); setEditDraft(c.body); }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {canDelete && !isEditingThis && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                          onClick={() => void handleDelete(c.id)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-xs whitespace-pre-wrap break-words mt-0.5">{c.body}</p>
+                  {isEditingThis ? (
+                    <div className="mt-1 space-y-1">
+                      <Textarea
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        rows={2}
+                        className="text-xs resize-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            void handleEdit(c.id);
+                          }
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        autoFocus
+                      />
+                      <div className="flex gap-1 justify-end">
+                        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setEditingId(null)}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" className="h-6 text-xs" onClick={() => void handleEdit(c.id)} disabled={!editDraft.trim()}>
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs whitespace-pre-wrap break-words mt-0.5">{c.body}</p>
+                  )}
                 </div>
               </div>
             );

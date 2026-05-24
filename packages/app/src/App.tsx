@@ -177,6 +177,35 @@ function ActiveCloudShareTracker() {
     return () => { cancelled = true; };
   }, [setActiveCloudContext, setCommentCounts, loadFromStoredShare]);
 
+  // Poll comment counts every 30s so card badges stay fresh
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+
+    const interval = window.setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      const sourceKey = getActiveLocalSnapshotSourceKey();
+      const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
+      let cloudShareId: string | null = snap?.cloudShareId ?? null;
+      if (!cloudShareId && sourceKey?.startsWith('cloud:')) {
+        cloudShareId = sourceKey.slice('cloud:'.length);
+      }
+      if (!cloudShareId) return;
+
+      try {
+        const res = await listShareComments(cloudShareId);
+        const counts: Record<string, number> = {};
+        for (const c of res.comments) {
+          counts[c.cardId] = (counts[c.cardId] ?? 0) + 1;
+        }
+        setCommentCounts(counts);
+      } catch {
+        // best-effort
+      }
+    }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, [setCommentCounts]);
+
   return null;
 }
 
