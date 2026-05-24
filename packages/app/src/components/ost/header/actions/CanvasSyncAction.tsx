@@ -171,7 +171,6 @@ export function CanvasSyncAction() {
       const created = await createStoredShare({
         ...payload,
         visibility: 'public',
-        ttlDays: 30,
       });
 
       if (snapshot) {
