@@ -25,6 +25,7 @@
     "test": "npm -w @ost-builder/app run test",
     "test:watch": "npm -w @ost-builder/app run test:watch",
     "test:coverage": "npm -w @ost-builder/app run test:coverage",
+    "analyze": "npm -w @ost-builder/app run analyze",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
