@@ -1,5 +1,4 @@
 import { memo } from 'react';
-import { motion } from 'framer-motion';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -139,7 +138,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
   const cardNumber = siblings.indexOf(card.id) + 1;
 
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
       style={style}
       data-ost-card
@@ -306,6 +305,6 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 });

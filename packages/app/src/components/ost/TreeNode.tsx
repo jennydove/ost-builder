@@ -1,6 +1,5 @@
 import { memo, useRef, useLayoutEffect, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CardType } from '@ost-builder/shared';
@@ -146,13 +145,9 @@ export const TreeNode = memo(function TreeNode({ cardId, depth = 0 }: TreeNodePr
       </div>
 
       {/* Connector line and children */}
-      <AnimatePresence>
-        {!isCollapsed && (childIds.length > 0 || canAddChildren) && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className={cn('flex items-center', isHorizontal ? 'flex-row' : 'flex-col')}
+      {!isCollapsed && (childIds.length > 0 || canAddChildren) && (
+          <div
+            className={cn('flex items-center animate-fade-in', isHorizontal ? 'flex-row' : 'flex-col')}
           >
             {isHorizontal ? (
               <>
@@ -391,9 +386,8 @@ export const TreeNode = memo(function TreeNode({ cardId, depth = 0 }: TreeNodePr
                   ))}
               </>
             )}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   );
 });
