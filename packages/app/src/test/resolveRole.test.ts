@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { resolveRole, type ShareRole } from '../../../../netlify/functions/_shareUtils.mts';
+import { resolveRole, type TreeRole } from '../../../../netlify/functions/_shareUtils.mts';
 
-function mockSupabase(memberRole: ShareRole | null, isOrgMember = false) {
+function mockSupabase(memberRole: TreeRole | null, isOrgMember = false) {
   const memberSingle = vi.fn().mockResolvedValue(
     memberRole
       ? { data: { role: memberRole }, error: null }

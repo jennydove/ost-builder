@@ -247,7 +247,7 @@ describe('share-store', () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    const mod = await import('../../../../netlify/functions/share-store.mts');
+    const mod = await import('../../../../netlify/functions/tree-store.mts');
     handler = mod.default;
   });
 
@@ -326,7 +326,7 @@ describe('share-store-item', () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    const mod = await import('../../../../netlify/functions/share-store-item.mts');
+    const mod = await import('../../../../netlify/functions/tree-store-item.mts');
     handler = mod.default;
   });
 
@@ -480,7 +480,7 @@ describe('share-store-comments', () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    const mod = await import('../../../../netlify/functions/share-store-comments.mts');
+    const mod = await import('../../../../netlify/functions/tree-store-comments.mts');
     handler = mod.default;
   });
 

@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, getSupabaseAsUser, resolveRole, type ShareRole } from './_shareUtils.mts';
+import { getSupabaseAsService, getSupabaseAsUser, resolveRole, type TreeRole } from './_shareUtils.mts';
 import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -7,7 +7,7 @@ import {
   rateLimitResponse,
 } from './_rateLimit.mts';
 
-function rowToPayload(row: Record<string, unknown>, role: ShareRole) {
+function rowToPayload(row: Record<string, unknown>, role: TreeRole) {
   return {
     id: row.id,
     name: row.name ?? null,
@@ -120,4 +120,4 @@ export default async (request: Request) => {
   return Response.json({ error: 'Method not allowed' }, { status: 405 });
 };
 
-export const config: Config = { path: '/api/share/store/:id' };
+export const config: Config = { path: '/api/tree/:id' };

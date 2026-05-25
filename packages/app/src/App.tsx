@@ -16,13 +16,13 @@ import {
   upsertShareSnapshot,
   updateLocalSnapshot,
 } from '@/lib/localSnapshots';
-import { getStoredShare, listShareComments, updateStoredShare } from '@/lib/storedShareApi';
+import { getTree, listTreeComments, updateTree } from '@/lib/treeApi';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import CdnStats from '@/components/analytics/CdnStats';
 import NotFound from './pages/NotFound';
 
 const Index = lazy(() => import('./pages/Index'));
-const StoredShareOpen = lazy(() => import('./pages/StoredShareOpen'));
+const StoredShareOpen = lazy(() => import('./pages/TreeOpen'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Library = lazy(() => import('./pages/Library'));
 
@@ -74,12 +74,12 @@ function LibraryAutoSave() {
       }
 
       // Throttled cloud sync (5s debounce, separate timer)
-      if (supabaseConfigured && sessionRef.current && saved?.cloudShareId) {
-        const shareId = saved.cloudShareId;
+      if (supabaseConfigured && sessionRef.current && saved?.cloudTreeId) {
+        const shareId = saved.cloudTreeId;
         const snapId = saved.id;
         if (cloudTimerRef.current) window.clearTimeout(cloudTimerRef.current);
         cloudTimerRef.current = window.setTimeout(() => {
-          void updateStoredShare(shareId, {
+          void updateTree(shareId, {
             markdown: payload.markdown,
             name: payload.name,
             settings: payload.settings,
@@ -110,19 +110,19 @@ function ActiveCloudShareTracker() {
 
     const sourceKey = getActiveLocalSnapshotSourceKey();
     const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
-    let cloudShareId: string | null = snap?.cloudShareId ?? null;
-    if (!cloudShareId && sourceKey?.startsWith('cloud:')) {
-      cloudShareId = sourceKey.slice('cloud:'.length);
+    let cloudTreeId: string | null = snap?.cloudTreeId ?? null;
+    if (!cloudTreeId && sourceKey?.startsWith('cloud:')) {
+      cloudTreeId = sourceKey.slice('cloud:'.length);
     }
 
-    if (!cloudShareId) {
+    if (!cloudTreeId) {
       setActiveCloudContext(null, false);
       setCommentCounts({});
       lastReconciledRef.current = null;
       return;
     }
 
-    if (lastReconciledRef.current === cloudShareId) return;
+    if (lastReconciledRef.current === cloudTreeId) return;
 
     let cancelled = false;
 
@@ -130,17 +130,17 @@ function ActiveCloudShareTracker() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session || cancelled) {
-          if (!cancelled) setActiveCloudContext(cloudShareId, false);
+          if (!cancelled) setActiveCloudContext(cloudTreeId, false);
           return;
         }
         const [payload, commentsRes] = await Promise.all([
-          getStoredShare(cloudShareId!).catch(() => null),
-          listShareComments(cloudShareId!).catch(() => ({ comments: [] })),
+          getTree(cloudTreeId!).catch(() => null),
+          listTreeComments(cloudTreeId!).catch(() => ({ comments: [] })),
         ]);
         if (cancelled) return;
 
         const isOwner = payload?.role === 'owner';
-        setActiveCloudContext(cloudShareId, isOwner);
+        setActiveCloudContext(cloudTreeId, isOwner);
 
         const counts: Record<string, number> = {};
         for (const c of commentsRes.comments) {
@@ -149,7 +149,7 @@ function ActiveCloudShareTracker() {
         setCommentCounts(counts);
 
         if (payload) {
-          lastReconciledRef.current = cloudShareId;
+          lastReconciledRef.current = cloudTreeId;
           if (payload.markdown !== useOSTStore.getState().markdown) {
             loadFromStoredShare({
               markdown: payload.markdown,
@@ -186,14 +186,14 @@ function ActiveCloudShareTracker() {
       if (document.visibilityState !== 'visible') return;
       const sourceKey = getActiveLocalSnapshotSourceKey();
       const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
-      let cloudShareId: string | null = snap?.cloudShareId ?? null;
-      if (!cloudShareId && sourceKey?.startsWith('cloud:')) {
-        cloudShareId = sourceKey.slice('cloud:'.length);
+      let cloudTreeId: string | null = snap?.cloudTreeId ?? null;
+      if (!cloudTreeId && sourceKey?.startsWith('cloud:')) {
+        cloudTreeId = sourceKey.slice('cloud:'.length);
       }
-      if (!cloudShareId) return;
+      if (!cloudTreeId) return;
 
       try {
-        const res = await listShareComments(cloudShareId);
+        const res = await listTreeComments(cloudTreeId);
         const counts: Record<string, number> = {};
         for (const c of res.comments) {
           counts[c.cardId] = (counts[c.cardId] ?? 0) + 1;

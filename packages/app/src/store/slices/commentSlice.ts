@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand';
 import type { OSTStore } from '../ostStore';
 
 export interface CommentSlice {
-  activeCloudShareId: string | null;
+  activeTreeId: string | null;
   activeIsOwner: boolean;
   commentCountsByCardId: Record<string, number>;
 
@@ -13,19 +13,19 @@ export interface CommentSlice {
 }
 
 export const createCommentSlice: StateCreator<OSTStore, [], [], CommentSlice> = (set) => ({
-  activeCloudShareId: null,
+  activeTreeId: null,
   activeIsOwner: false,
   commentCountsByCardId: {},
 
   setActiveCloudContext: (shareId, isOwner) => {
     set((state) => {
-      if (state.activeCloudShareId === shareId && state.activeIsOwner === isOwner) {
+      if (state.activeTreeId === shareId && state.activeIsOwner === isOwner) {
         return state;
       }
       return {
-        activeCloudShareId: shareId,
+        activeTreeId: shareId,
         activeIsOwner: isOwner,
-        commentCountsByCardId: shareId === state.activeCloudShareId ? state.commentCountsByCardId : {},
+        commentCountsByCardId: shareId === state.activeTreeId ? state.commentCountsByCardId : {},
       };
     });
   },

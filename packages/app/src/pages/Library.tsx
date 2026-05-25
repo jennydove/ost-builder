@@ -28,10 +28,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  deleteStoredShare,
-  getStoredShare,
-  listStoredShares,
-} from '@/lib/storedShareApi';
+  deleteTree,
+  getTree,
+  listTrees,
+} from '@/lib/treeApi';
 import {
   clearActiveLocalSnapshotSourceKey,
   deleteLocalSnapshot,
@@ -84,7 +84,7 @@ function extractProjectNameFromMarkdown(markdown: string): string {
 }
 
 function getCloudId(item: LocalSnapshot): string | null {
-  if (item.cloudShareId) return item.cloudShareId;
+  if (item.cloudTreeId) return item.cloudTreeId;
   if (item.sourceType === 'share-cloud' && item.sourceKey?.startsWith('cloud:')) {
     return item.sourceKey.slice('cloud:'.length);
   }
@@ -144,9 +144,9 @@ export default function Library() {
       }
 
       // Fetch user's cloud shares
-      let cloudItems: Awaited<ReturnType<typeof listStoredShares>>['items'] = [];
+      let cloudItems: Awaited<ReturnType<typeof listTrees>>['items'] = [];
       try {
-        const result = await listStoredShares(1, 50);
+        const result = await listTrees(1, 50);
         cloudItems = result.items;
       } catch {
         setItems(localItems);
@@ -163,7 +163,7 @@ export default function Library() {
       await Promise.all(
         cloudOnlyItems.map(async (cloudItem) => {
           try {
-            const payload = await getStoredShare(cloudItem.id);
+            const payload = await getTree(cloudItem.id);
             upsertShareSnapshot(`cloud:${cloudItem.id}`, 'share-cloud', {
               name: payload.name ?? cloudItem.name ?? 'Untitled',
               markdown: payload.markdown,
@@ -171,7 +171,7 @@ export default function Library() {
               collapsedIds: payload.collapsedIds ?? [],
             });
             const snap = findLocalSnapshotBySource(`cloud:${cloudItem.id}`);
-            if (snap) updateLocalSnapshot(snap.id, { cloudShareId: cloudItem.id });
+            if (snap) updateLocalSnapshot(snap.id, { cloudTreeId: cloudItem.id });
           } catch {
             // Skip items we can't fetch
           }
@@ -228,7 +228,7 @@ export default function Library() {
     const cloudId = getCloudId(item);
     if (cloudId && cloudUser) {
       try {
-        const cloud = await getStoredShare(cloudId);
+        const cloud = await getTree(cloudId);
         payload = {
           markdown: cloud.markdown,
           name: cloud.name ?? item.name,
@@ -265,7 +265,7 @@ export default function Library() {
     const cloudId = getCloudId(item);
     if (cloudId && cloudUser) {
       try {
-        await deleteStoredShare(cloudId);
+        await deleteTree(cloudId);
       } catch {
         // Local deleted; cloud delete best-effort
       }

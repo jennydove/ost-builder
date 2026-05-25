@@ -6,12 +6,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useOSTStore } from '@/store/ostStore';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import {
-  listShareComments,
-  postShareComment,
-  updateShareComment,
-  deleteShareComment,
-  type ShareComment,
-} from '@/lib/storedShareApi';
+  listTreeComments,
+  postTreeComment,
+  updateTreeComment,
+  deleteTreeComment,
+  type TreeComment,
+} from '@/lib/treeApi';
 import { toast } from '@/components/ui/use-toast';
 
 type Props = {
@@ -42,12 +42,12 @@ function initials(name: string | null | undefined): string {
 }
 
 export function CommentsSection({ cardId }: Props) {
-  const shareId = useOSTStore((state) => state.activeCloudShareId);
+  const shareId = useOSTStore((state) => state.activeTreeId);
   const isOwner = useOSTStore((state) => state.activeIsOwner);
   const incrementCount = useOSTStore((state) => state.incrementCommentCount);
   const decrementCount = useOSTStore((state) => state.decrementCommentCount);
 
-  const [comments, setComments] = useState<ShareComment[]>([]);
+  const [comments, setComments] = useState<TreeComment[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [draft, setDraft] = useState('');
@@ -78,7 +78,7 @@ export function CommentsSection({ cardId }: Props) {
 
     const fetchComments = async () => {
       try {
-        const res = await listShareComments(shareId, cardId);
+        const res = await listTreeComments(shareId, cardId);
         if (cancelled || cardIdRef.current !== cardId) return;
         setComments(res.comments);
       } catch {
@@ -109,7 +109,7 @@ export function CommentsSection({ cardId }: Props) {
     if (!body || submitting || !shareId) return;
     setSubmitting(true);
     try {
-      const { comment } = await postShareComment(shareId, cardId, body);
+      const { comment } = await postTreeComment(shareId, cardId, body);
       setComments((prev) => [...prev, comment]);
       setDraft('');
       incrementCount(cardId);
@@ -127,7 +127,7 @@ export function CommentsSection({ cardId }: Props) {
     setComments((prev) => prev.filter((c) => c.id !== commentId));
     decrementCount(cardId);
     try {
-      await deleteShareComment(shareId, commentId);
+      await deleteTreeComment(shareId, commentId);
     } catch {
       if (removed) {
         setComments((prev) => [...prev, removed].sort((a, b) => a.createdAt - b.createdAt));
@@ -144,7 +144,7 @@ export function CommentsSection({ cardId }: Props) {
     setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, body } : c)));
     setEditingId(null);
     try {
-      await updateShareComment(shareId, commentId, body);
+      await updateTreeComment(shareId, commentId, body);
     } catch {
       if (original) setComments((prev) => prev.map((c) => (c.id === commentId ? original : c)));
       toast({ title: 'Could not update comment', variant: 'destructive' });

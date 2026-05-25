@@ -28,7 +28,7 @@ function resetStore(markdown?: string) {
     experimentLayout: 'vertical' as const,
     viewDensity: 'full' as const,
     collapsedCardIds: [],
-    activeCloudShareId: null,
+    activeTreeId: null,
     activeIsOwner: false,
     commentCountsByCardId: {},
   }, true);
@@ -129,24 +129,24 @@ describe('ostStore', () => {
 
   describe('setActiveCloudContext', () => {
     it('clears comment counts when share changes', () => {
-      useOSTStore.setState({ activeCloudShareId: 'share-1', commentCountsByCardId: { c1: 5 } });
+      useOSTStore.setState({ activeTreeId: 'share-1', commentCountsByCardId: { c1: 5 } });
       getState().setActiveCloudContext('share-2', false);
       expect(getState().commentCountsByCardId).toEqual({});
-      expect(getState().activeCloudShareId).toBe('share-2');
+      expect(getState().activeTreeId).toBe('share-2');
     });
 
     it('preserves comment counts when same share', () => {
-      useOSTStore.setState({ activeCloudShareId: 'share-1', commentCountsByCardId: { c1: 5 } });
+      useOSTStore.setState({ activeTreeId: 'share-1', commentCountsByCardId: { c1: 5 } });
       getState().setActiveCloudContext('share-1', true);
       expect(getState().commentCountsByCardId).toEqual({ c1: 5 });
     });
 
     it('no-ops when share and owner unchanged', () => {
-      useOSTStore.setState({ activeCloudShareId: 'share-1', activeIsOwner: true });
+      useOSTStore.setState({ activeTreeId: 'share-1', activeIsOwner: true });
       const before = getState();
       getState().setActiveCloudContext('share-1', true);
       // Should return same reference (no state change)
-      expect(getState().activeCloudShareId).toBe('share-1');
+      expect(getState().activeTreeId).toBe('share-1');
     });
   });
 

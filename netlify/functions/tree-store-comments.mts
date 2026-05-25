@@ -32,7 +32,7 @@ async function sendCommentEmail(opts: {
 
 export default async (request: Request) => {
   const parts = new URL(request.url).pathname.split('/');
-  // /api/share/store/<shareId>/comments[/<commentId>]
+  // /api/tree/<shareId>/comments[/<commentId>]
   const shareId = parts[4] ?? '';
   const commentId = parts[6] ?? '';
 
@@ -248,7 +248,7 @@ export default async (request: Request) => {
 
 export const config: Config = {
   path: [
-    '/api/share/store/:id/comments',
-    '/api/share/store/:id/comments/:commentId',
+    '/api/tree/:id/comments',
+    '/api/tree/:id/comments/:commentId',
   ],
 };
