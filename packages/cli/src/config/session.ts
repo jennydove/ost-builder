@@ -4,15 +4,7 @@ import os from 'node:os';
 
 export type CliSession = {
   apiBase: string;
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt?: number;
-  user?: {
-    sub: string;
-    provider: 'github';
-    name?: string;
-    email?: string;
-  };
+  token: string;
   savedAt: number;
 };
 
@@ -27,7 +19,7 @@ export function loadSession(): CliSession | null {
   try {
     const raw = fs.readFileSync(file, 'utf8');
     const parsed = JSON.parse(raw) as CliSession;
-    if (!parsed?.accessToken || !parsed?.apiBase) return null;
+    if (!parsed?.token || !parsed?.apiBase) return null;
     return parsed;
   } catch {
     return null;

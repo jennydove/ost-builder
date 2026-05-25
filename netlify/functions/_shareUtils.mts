@@ -1,9 +1,31 @@
 import { createClient } from '@supabase/supabase-js';
+import { createHash } from 'node:crypto';
 
 export type ShareRole = 'owner' | 'editor' | 'viewer';
 
 export function getSupabaseAsService() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+}
+
+export function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+export async function resolvePatUser(
+  supabase: ReturnType<typeof getSupabaseAsService>,
+  token: string,
+): Promise<{ userId: string; tokenId: string } | null> {
+  if (!token.startsWith('ost_pat_')) return null;
+  const hash = hashToken(token);
+  const { data } = await supabase
+    .from('cli_tokens')
+    .select('id, user_id, expires_at')
+    .eq('token_hash', hash)
+    .single();
+  if (!data) return null;
+  if (data.expires_at && new Date(data.expires_at as string) < new Date()) return null;
+  void supabase.from('cli_tokens').update({ last_used_at: new Date().toISOString() }).eq('id', data.id);
+  return { userId: data.user_id as string, tokenId: data.id as string };
 }
 
 // Creates a client that acts as the authenticated user — RLS policies apply.
@@ -12,6 +34,28 @@ export function getSupabaseAsUser(jwt: string) {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
   });
+}
+
+export async function resolveAuthUser(
+  supabase: ReturnType<typeof getSupabaseAsService>,
+  token: string | null,
+): Promise<{ userId: string; userName: string | null } | null> {
+  if (!token) return null;
+
+  if (token.startsWith('ost_pat_')) {
+    const pat = await resolvePatUser(supabase, token);
+    if (!pat) return null;
+    const { data } = await supabase.auth.admin.getUserById(pat.userId);
+    const meta = (data?.user?.user_metadata ?? {}) as Record<string, unknown>;
+    const name = (meta.full_name as string) || (meta.name as string) || data?.user?.email || null;
+    return { userId: pat.userId, userName: name };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser(token);
+  if (!user) return null;
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const name = (meta.full_name as string) || (meta.name as string) || user.email || null;
+  return { userId: user.id, userName: name };
 }
 
 export async function resolveRole(

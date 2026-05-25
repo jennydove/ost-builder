@@ -23,6 +23,7 @@ import NotFound from './pages/NotFound';
 
 const Index = lazy(() => import('./pages/Index'));
 const StoredShareOpen = lazy(() => import('./pages/StoredShareOpen'));
+const Settings = lazy(() => import('./pages/Settings'));
 const Library = lazy(() => import('./pages/Library'));
 
 
@@ -254,6 +255,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/s/:id" element={<StoredShareOpen />} />
           <Route path="/library" element={<Library />} />
+          <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
