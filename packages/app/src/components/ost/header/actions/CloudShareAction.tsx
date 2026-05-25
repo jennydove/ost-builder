@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { CloudUpload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOSTStore } from '@/store/ostStore';
-import { createStoredShare, updateStoredShare } from '@/lib/storedShareApi';
+import { createTree, updateTree } from '@/lib/treeApi';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import {
@@ -65,10 +65,10 @@ export function CloudShareAction() {
     try {
       const activeSourceKey = getActiveLocalSnapshotSourceKey();
       const snapshot = activeSourceKey ? findLocalSnapshotBySource(activeSourceKey) : null;
-      const cloudId = resolveCloudId(activeSourceKey, snapshot?.cloudShareId);
+      const cloudId = resolveCloudId(activeSourceKey, snapshot?.cloudTreeId);
 
       if (cloudId) {
-        await updateStoredShare(cloudId, {
+        await updateTree(cloudId, {
           markdown: payload.markdown,
           name: payload.name,
           visibility,
@@ -77,10 +77,10 @@ export function CloudShareAction() {
         });
         await navigator.clipboard.writeText(`${window.location.origin}/s/${cloudId}`);
         if (snapshot) {
-          updateLocalSnapshot(snapshot.id, { cloudShareId: cloudId, syncedAt: Date.now() });
+          updateLocalSnapshot(snapshot.id, { cloudTreeId: cloudId, syncedAt: Date.now() });
         }
       } else {
-        const result = await createStoredShare({
+        const result = await createTree({
           markdown: payload.markdown,
           name: payload.name,
           visibility,
@@ -89,7 +89,7 @@ export function CloudShareAction() {
         });
         await navigator.clipboard.writeText(`${window.location.origin}${result.link}`);
         if (snapshot) {
-          updateLocalSnapshot(snapshot.id, { cloudShareId: result.id, syncedAt: Date.now() });
+          updateLocalSnapshot(snapshot.id, { cloudTreeId: result.id, syncedAt: Date.now() });
         }
       }
 

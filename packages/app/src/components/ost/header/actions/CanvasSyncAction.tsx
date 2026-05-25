@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  createStoredShare,
+  createTree,
   getAuthMe,
-  getStoredShare,
-  updateStoredShare,
-} from '@/lib/storedShareApi';
+  getTree,
+  updateTree,
+} from '@/lib/treeApi';
 import {
   buildSnapshotPayloadHash,
   findLocalSnapshotBySource,
@@ -43,7 +43,7 @@ function getSyncVisualState(
   remoteUpdatedAt: number | null,
 ): SyncVisualState {
   if (!snapshot) return 'not-linked';
-  const cloudId = resolveCloudId(snapshot.sourceKey || null, snapshot.cloudShareId);
+  const cloudId = resolveCloudId(snapshot.sourceKey || null, snapshot.cloudTreeId);
   if (!cloudId) return 'not-linked';
 
   if (remotePayloadHash && remotePayloadHash === localPayloadHash) {
@@ -80,8 +80,8 @@ export function CanvasSyncAction() {
     [activeSourceKey, markdown, projectName, collapsedCount, syncing],
   );
   const activeCloudId = useMemo(
-    () => resolveCloudId(activeSourceKey, activeSnapshot?.cloudShareId),
-    [activeSourceKey, activeSnapshot?.cloudShareId],
+    () => resolveCloudId(activeSourceKey, activeSnapshot?.cloudTreeId),
+    [activeSourceKey, activeSnapshot?.cloudTreeId],
   );
   const localPayloadHash = useMemo(() => {
     const payload = getSharePayload();
@@ -106,7 +106,7 @@ export function CanvasSyncAction() {
         return;
       }
       try {
-        const share = await getStoredShare(activeCloudId);
+        const share = await getTree(activeCloudId);
         if (!active) return;
         setRemoteUpdatedAt(share.updatedAt || null);
         setRemotePayloadHash(
@@ -157,24 +157,24 @@ export function CanvasSyncAction() {
     try {
       const payload = getSharePayload();
       const snapshot = activeSnapshot;
-      const cloudId = resolveCloudId(activeSourceKey, snapshot?.cloudShareId);
+      const cloudId = resolveCloudId(activeSourceKey, snapshot?.cloudTreeId);
 
       if (cloudId) {
-        await updateStoredShare(cloudId, payload);
+        await updateTree(cloudId, payload);
         if (snapshot) {
-          updateLocalSnapshot(snapshot.id, { cloudShareId: cloudId, syncedAt: Date.now() });
+          updateLocalSnapshot(snapshot.id, { cloudTreeId: cloudId, syncedAt: Date.now() });
         }
         toast({ title: 'Synced', description: 'Cloud copy updated.' });
         return;
       }
 
-      const created = await createStoredShare({
+      const created = await createTree({
         ...payload,
         visibility: 'link-public',
       });
 
       if (snapshot) {
-        updateLocalSnapshot(snapshot.id, { cloudShareId: created.id, syncedAt: Date.now() });
+        updateLocalSnapshot(snapshot.id, { cloudTreeId: created.id, syncedAt: Date.now() });
       }
 
       toast({ title: 'Synced', description: 'Cloud copy created.' });

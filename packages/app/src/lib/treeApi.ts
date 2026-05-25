@@ -9,41 +9,41 @@ export type AuthUser = {
   avatarUrl?: string;
 };
 
-export type ShareVisibility = 'link-public' | 'domain-restricted' | 'restricted';
-export type ShareStatus = 'active' | 'expired' | 'deleted';
+export type TreeVisibility = 'link-public' | 'domain-restricted' | 'restricted';
+export type TreeStatus = 'active' | 'expired' | 'deleted';
 
-export type CreateStoredShareInput = {
+export type CreateTreeInput = {
   markdown: string;
   name?: string;
-  visibility: ShareVisibility;
+  visibility: TreeVisibility;
   settings?: ShareSettings;
   collapsedIds?: string[];
 };
 
-export type StoredShareListItem = {
+export type TreeListItem = {
   id: string;
   name?: string | null;
-  visibility: ShareVisibility;
-  status?: ShareStatus;
+  visibility: TreeVisibility;
+  status?: TreeStatus;
   createdAt: number;
   updatedAt: number;
   expiresAt?: number;
   link: string;
 };
 
-export type ShareRole = 'owner' | 'editor' | 'viewer';
+export type TreeRole = 'owner' | 'editor' | 'viewer';
 
-export type StoredSharePayload = {
+export type TreePayload = {
   id: string;
   name?: string | null;
-  visibility: ShareVisibility;
+  visibility: TreeVisibility;
   expiresAt?: number;
   createdAt: number;
   updatedAt: number;
   markdown: string;
   settings?: ShareSettings;
   collapsedIds?: string[];
-  role: ShareRole;
+  role: TreeRole;
 };
 
 async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
@@ -80,61 +80,61 @@ export async function getAuthMe(): Promise<{ user: AuthUser | null; featureEnabl
   return apiFetch('/api/auth/me');
 }
 
-export async function createStoredShare(input: CreateStoredShareInput): Promise<{
+export async function createTree(input: CreateTreeInput): Promise<{
   id: string;
   link: string;
   expiresAt: number;
-  visibility: ShareVisibility;
-  status: ShareStatus;
+  visibility: TreeVisibility;
+  status: TreeStatus;
 }> {
-  return apiFetch('/api/share/store', {
+  return apiFetch('/api/tree', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }
 
-export async function listStoredShares(
+export async function listTrees(
   page = 1,
   pageSize = 20,
 ): Promise<{
-  items: StoredShareListItem[];
+  items: TreeListItem[];
   page: number;
   pageSize: number;
   total: number;
 }> {
-  return apiFetch(`/api/share/store?page=${page}&pageSize=${pageSize}`);
+  return apiFetch(`/api/tree?page=${page}&pageSize=${pageSize}`);
 }
 
-export async function getStoredShare(id: string): Promise<StoredSharePayload> {
-  return apiFetch(`/api/share/store/${encodeURIComponent(id)}`);
+export async function getTree(id: string): Promise<TreePayload> {
+  return apiFetch(`/api/tree/${encodeURIComponent(id)}`);
 }
 
-export async function updateStoredShare(
+export async function updateTree(
   id: string,
   input: {
     markdown?: string;
     name?: string;
-    visibility?: ShareVisibility;
+    visibility?: TreeVisibility;
     settings?: ShareSettings;
     collapsedIds?: string[];
   },
-): Promise<{ id: string; visibility: ShareVisibility; updatedAt: number; expiresAt?: number }> {
-  return apiFetch(`/api/share/store/${encodeURIComponent(id)}`, {
+): Promise<{ id: string; visibility: TreeVisibility; updatedAt: number; expiresAt?: number }> {
+  return apiFetch(`/api/tree/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }
 
-export async function deleteStoredShare(id: string): Promise<void> {
-  await apiFetch(`/api/share/store/${encodeURIComponent(id)}`, {
+export async function deleteTree(id: string): Promise<void> {
+  await apiFetch(`/api/tree/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
   });
 }
 
-export type ShareComment = {
+export type TreeComment = {
   id: string;
   cardId: string;
   userId: string | null;
@@ -143,33 +143,33 @@ export type ShareComment = {
   createdAt: number;
 };
 
-export async function listShareComments(
+export async function listTreeComments(
   shareId: string,
   cardId?: string,
-): Promise<{ comments: ShareComment[] }> {
+): Promise<{ comments: TreeComment[] }> {
   const qs = cardId ? `?cardId=${encodeURIComponent(cardId)}` : '';
-  return apiFetch(`/api/share/store/${encodeURIComponent(shareId)}/comments${qs}`);
+  return apiFetch(`/api/tree/${encodeURIComponent(shareId)}/comments${qs}`);
 }
 
-export async function postShareComment(
+export async function postTreeComment(
   shareId: string,
   cardId: string,
   body: string,
-): Promise<{ comment: ShareComment }> {
-  return apiFetch(`/api/share/store/${encodeURIComponent(shareId)}/comments`, {
+): Promise<{ comment: TreeComment }> {
+  return apiFetch(`/api/tree/${encodeURIComponent(shareId)}/comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cardId, body }),
   });
 }
 
-export async function updateShareComment(
+export async function updateTreeComment(
   shareId: string,
   commentId: string,
   body: string,
-): Promise<{ comment: ShareComment }> {
+): Promise<{ comment: TreeComment }> {
   return apiFetch(
-    `/api/share/store/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
+    `/api/tree/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -178,9 +178,9 @@ export async function updateShareComment(
   );
 }
 
-export async function deleteShareComment(shareId: string, commentId: string): Promise<void> {
+export async function deleteTreeComment(shareId: string, commentId: string): Promise<void> {
   await apiFetch(
-    `/api/share/store/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
+    `/api/tree/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
     { method: 'DELETE' },
   );
 }

@@ -26,7 +26,7 @@ export type LocalSnapshot = {
   collapsedIds?: string[];
   sourceType?: SnapshotSourceType;
   sourceKey?: string;
-  cloudShareId?: string;
+  cloudTreeId?: string;
   syncedAt?: number;
   payloadHash?: string;
   createdAt: number;
@@ -185,7 +185,7 @@ export function updateLocalSnapshot(
       | 'markdown'
       | 'settings'
       | 'collapsedIds'
-      | 'cloudShareId'
+      | 'cloudTreeId'
       | 'syncedAt'
       | 'sourceType'
       | 'sourceKey'

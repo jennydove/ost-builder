@@ -31,7 +31,7 @@ const extractProjectNameFromMarkdown = (markdown: string) => {
   return defaultProjectName;
 };
 
-export interface ShareSlice {
+export interface TreeSlice {
   markdown: string;
   projectName: string;
 
@@ -56,7 +56,7 @@ export interface ShareSlice {
   }) => void;
 }
 
-export const createShareSlice: StateCreator<OSTStore, [], [], ShareSlice> = (set, get) => {
+export const createTreeSlice: StateCreator<OSTStore, [], [], TreeSlice> = (set, get) => {
   const defaultMarkdown = createDefaultMarkdown();
 
   return {
