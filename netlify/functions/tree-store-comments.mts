@@ -32,9 +32,9 @@ async function sendCommentEmail(opts: {
 
 export default async (request: Request) => {
   const parts = new URL(request.url).pathname.split('/');
-  // /api/tree/<shareId>/comments[/<commentId>]
-  const shareId = parts[4] ?? '';
-  const commentId = parts[6] ?? '';
+  // /api/trees/<treeId>/comments[/<commentId>]
+  const shareId = parts[3] ?? '';
+  const commentId = parts[5] ?? '';
 
   if (!shareId) return Response.json({ error: 'Missing share id' }, { status: 400 });
 
