@@ -259,7 +259,7 @@ describe('share-store', () => {
       });
       const res = await handler(makeRequest(
         'POST',
-        'http://localhost/api/share/store',
+        'http://localhost/api/trees',
         { markdown: '# Test', name: 'Test OST', visibility: 'link-public' },
         VALID_TOKEN,
       ));
@@ -273,7 +273,7 @@ describe('share-store', () => {
       mockSb = createMockSupabase();
       const res = await handler(makeRequest(
         'POST',
-        'http://localhost/api/share/store',
+        'http://localhost/api/trees',
         { markdown: '# Test' },
       ));
       expect(res.status).toBe(401);
@@ -283,7 +283,7 @@ describe('share-store', () => {
       mockSb = createMockSupabase({ user: null });
       const res = await handler(makeRequest(
         'POST',
-        'http://localhost/api/share/store',
+        'http://localhost/api/trees',
         { markdown: '# Test' },
         'bad-token',
       ));
@@ -301,7 +301,7 @@ describe('share-store', () => {
       });
       const res = await handler(makeRequest(
         'GET',
-        'http://localhost/api/share/store',
+        'http://localhost/api/trees',
         undefined,
         VALID_TOKEN,
       ));
@@ -313,7 +313,7 @@ describe('share-store', () => {
 
     it('returns 401 without token', async () => {
       mockSb = createMockSupabase();
-      const res = await handler(makeRequest('GET', 'http://localhost/api/share/store'));
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees'));
       expect(res.status).toBe(401);
     });
   });
@@ -335,7 +335,7 @@ describe('share-store-item', () => {
       mockSb = createMockSupabase({
         share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
-      const res = await handler(makeRequest('GET', 'http://localhost/api/share/store/s1'));
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees/s1'));
       const json = await res.json();
       expect(res.status).toBe(200);
       expect(json.role).toBe('viewer');
@@ -347,7 +347,7 @@ describe('share-store-item', () => {
         user: OWNER_USER,
         share: { id: 's1', visibility: 'link-public', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
-      const res = await handler(makeRequest('GET', 'http://localhost/api/share/store/s1', undefined, VALID_TOKEN));
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees/s1', undefined, VALID_TOKEN));
       const json = await res.json();
       expect(res.status).toBe(200);
       expect(json.role).toBe('owner');
@@ -355,7 +355,7 @@ describe('share-store-item', () => {
 
     it('returns 404 for nonexistent share', async () => {
       mockSb = createMockSupabase({ share: null });
-      const res = await handler(makeRequest('GET', 'http://localhost/api/share/store/nonexistent'));
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees/nonexistent'));
       expect(res.status).toBe(404);
     });
 
@@ -363,7 +363,7 @@ describe('share-store-item', () => {
       mockSb = createMockSupabase({
         share: { id: 's1', visibility: 'restricted', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
       });
-      const res = await handler(makeRequest('GET', 'http://localhost/api/share/store/s1'));
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees/s1'));
       expect(res.status).toBe(401);
     });
   });
@@ -377,7 +377,7 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest(
         'PATCH',
-        'http://localhost/api/share/store/s1',
+        'http://localhost/api/trees/s1',
         { markdown: '# Updated' },
         VALID_TOKEN,
       ));
@@ -394,7 +394,7 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest(
         'PATCH',
-        'http://localhost/api/share/store/s1',
+        'http://localhost/api/trees/s1',
         { markdown: '# Hack' },
         VALID_TOKEN,
       ));
@@ -410,7 +410,7 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest(
         'PATCH',
-        'http://localhost/api/share/store/s1',
+        'http://localhost/api/trees/s1',
         { visibility: 'restricted' },
         VALID_TOKEN,
       ));
@@ -423,7 +423,7 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest(
         'PATCH',
-        'http://localhost/api/share/store/s1',
+        'http://localhost/api/trees/s1',
         { markdown: '# Hack' },
       ));
       expect(res.status).toBe(401);
@@ -438,7 +438,7 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1',
+        'http://localhost/api/trees/s1',
         undefined,
         VALID_TOKEN,
       ));
@@ -453,7 +453,7 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1',
+        'http://localhost/api/trees/s1',
         undefined,
         VALID_TOKEN,
       ));
@@ -466,7 +466,7 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1',
+        'http://localhost/api/trees/s1',
       ));
       expect(res.status).toBe(401);
     });
@@ -497,7 +497,7 @@ describe('share-store-comments', () => {
       });
       const res = await handler(makeRequest(
         'GET',
-        'http://localhost/api/share/store/s1/comments',
+        'http://localhost/api/trees/s1/comments',
         undefined,
         VALID_TOKEN,
       ));
@@ -513,7 +513,7 @@ describe('share-store-comments', () => {
       });
       const res = await handler(makeRequest(
         'GET',
-        'http://localhost/api/share/store/s1/comments',
+        'http://localhost/api/trees/s1/comments',
       ));
       expect(res.status).toBe(401);
     });
@@ -528,7 +528,7 @@ describe('share-store-comments', () => {
       });
       const res = await handler(makeRequest(
         'POST',
-        'http://localhost/api/share/store/s1/comments',
+        'http://localhost/api/trees/s1/comments',
         { cardId: 'card-1', body: 'New comment' },
         VALID_TOKEN,
       ));
@@ -541,7 +541,7 @@ describe('share-store-comments', () => {
       mockSb = createMockSupabase({ share: publicShare });
       const res = await handler(makeRequest(
         'POST',
-        'http://localhost/api/share/store/s1/comments',
+        'http://localhost/api/trees/s1/comments',
         { cardId: 'card-1', body: 'Anon comment' },
       ));
       expect(res.status).toBe(401);
@@ -551,7 +551,7 @@ describe('share-store-comments', () => {
       mockSb = createMockSupabase({ user: USER, share: publicShare });
       const res = await handler(makeRequest(
         'POST',
-        'http://localhost/api/share/store/s1/comments',
+        'http://localhost/api/trees/s1/comments',
         { cardId: 'card-1', body: '' },
         VALID_TOKEN,
       ));
@@ -562,7 +562,7 @@ describe('share-store-comments', () => {
       mockSb = createMockSupabase({ user: USER, share: publicShare });
       const res = await handler(makeRequest(
         'POST',
-        'http://localhost/api/share/store/s1/comments',
+        'http://localhost/api/trees/s1/comments',
         { cardId: '', body: 'Hello' },
         VALID_TOKEN,
       ));
@@ -579,7 +579,7 @@ describe('share-store-comments', () => {
       });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1/comments/c1',
+        'http://localhost/api/trees/s1/comments/c1',
         undefined,
         VALID_TOKEN,
       ));
@@ -594,7 +594,7 @@ describe('share-store-comments', () => {
       });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1/comments/c1',
+        'http://localhost/api/trees/s1/comments/c1',
         undefined,
         VALID_TOKEN,
       ));
@@ -610,7 +610,7 @@ describe('share-store-comments', () => {
       });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1/comments/c1',
+        'http://localhost/api/trees/s1/comments/c1',
         undefined,
         VALID_TOKEN,
       ));
@@ -625,7 +625,7 @@ describe('share-store-comments', () => {
       });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1/comments/nonexistent',
+        'http://localhost/api/trees/s1/comments/nonexistent',
         undefined,
         VALID_TOKEN,
       ));
@@ -636,7 +636,7 @@ describe('share-store-comments', () => {
       mockSb = createMockSupabase({ share: publicShare });
       const res = await handler(makeRequest(
         'DELETE',
-        'http://localhost/api/share/store/s1/comments/c1',
+        'http://localhost/api/trees/s1/comments/c1',
       ));
       expect(res.status).toBe(401);
     });
