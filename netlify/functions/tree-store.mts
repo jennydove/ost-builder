@@ -104,4 +104,4 @@ export default async (request: Request) => {
   return Response.json({ id: share.id, link: `/s/${share.id}` });
 };
 
-export const config: Config = { path: '/api/tree' };
+export const config: Config = { path: '/api/trees' };

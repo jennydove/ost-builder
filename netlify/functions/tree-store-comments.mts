@@ -248,7 +248,7 @@ export default async (request: Request) => {
 
 export const config: Config = {
   path: [
-    '/api/tree/:id/comments',
-    '/api/tree/:id/comments/:commentId',
+    '/api/trees/:id/comments',
+    '/api/trees/:id/comments/:commentId',
   ],
 };

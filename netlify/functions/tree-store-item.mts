@@ -120,4 +120,4 @@ export default async (request: Request) => {
   return Response.json({ error: 'Method not allowed' }, { status: 405 });
 };
 
-export const config: Config = { path: '/api/tree/:id' };
+export const config: Config = { path: '/api/trees/:id' };

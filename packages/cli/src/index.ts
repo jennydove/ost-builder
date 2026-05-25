@@ -113,7 +113,7 @@ async function handleLibrary(args: string[]) {
   const sub = args[0];
 
   if (sub === 'list') {
-    const res = await apiFetch<{ items: ShareListItem[] }>('/api/share/store');
+    const res = await apiFetch<{ items: ShareListItem[] }>('/api/trees');
     if (!res.items.length) {
       console.log('No trees found.');
       return;
@@ -153,7 +153,7 @@ async function handleLibrary(args: string[]) {
       if (firstLine.startsWith('# ')) name = firstLine.slice(2).trim();
     }
 
-    const res = await apiFetch<{ id: string; link: string }>('/api/share/store', {
+    const res = await apiFetch<{ id: string; link: string }>('/api/trees', {
       method: 'POST',
       body: JSON.stringify({
         markdown,
@@ -176,7 +176,7 @@ async function handleLibrary(args: string[]) {
     }
 
     const res = await apiFetch<{ markdown: string; name?: string | null }>(
-      `/api/share/store/${encodeURIComponent(id)}`,
+      `/api/trees/${encodeURIComponent(id)}`,
     );
 
     let outputPath: string | undefined;

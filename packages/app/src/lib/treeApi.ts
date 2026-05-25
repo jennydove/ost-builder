@@ -87,7 +87,7 @@ export async function createTree(input: CreateTreeInput): Promise<{
   visibility: TreeVisibility;
   status: TreeStatus;
 }> {
-  return apiFetch('/api/tree', {
+  return apiFetch('/api/trees', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -103,11 +103,11 @@ export async function listTrees(
   pageSize: number;
   total: number;
 }> {
-  return apiFetch(`/api/tree?page=${page}&pageSize=${pageSize}`);
+  return apiFetch(`/api/trees?page=${page}&pageSize=${pageSize}`);
 }
 
 export async function getTree(id: string): Promise<TreePayload> {
-  return apiFetch(`/api/tree/${encodeURIComponent(id)}`);
+  return apiFetch(`/api/trees/${encodeURIComponent(id)}`);
 }
 
 export async function updateTree(
@@ -120,7 +120,7 @@ export async function updateTree(
     collapsedIds?: string[];
   },
 ): Promise<{ id: string; visibility: TreeVisibility; updatedAt: number; expiresAt?: number }> {
-  return apiFetch(`/api/tree/${encodeURIComponent(id)}`, {
+  return apiFetch(`/api/trees/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -128,7 +128,7 @@ export async function updateTree(
 }
 
 export async function deleteTree(id: string): Promise<void> {
-  await apiFetch(`/api/tree/${encodeURIComponent(id)}`, {
+  await apiFetch(`/api/trees/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -148,7 +148,7 @@ export async function listTreeComments(
   cardId?: string,
 ): Promise<{ comments: TreeComment[] }> {
   const qs = cardId ? `?cardId=${encodeURIComponent(cardId)}` : '';
-  return apiFetch(`/api/tree/${encodeURIComponent(shareId)}/comments${qs}`);
+  return apiFetch(`/api/trees/${encodeURIComponent(shareId)}/comments${qs}`);
 }
 
 export async function postTreeComment(
@@ -156,7 +156,7 @@ export async function postTreeComment(
   cardId: string,
   body: string,
 ): Promise<{ comment: TreeComment }> {
-  return apiFetch(`/api/tree/${encodeURIComponent(shareId)}/comments`, {
+  return apiFetch(`/api/trees/${encodeURIComponent(shareId)}/comments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cardId, body }),
@@ -169,7 +169,7 @@ export async function updateTreeComment(
   body: string,
 ): Promise<{ comment: TreeComment }> {
   return apiFetch(
-    `/api/tree/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
+    `/api/trees/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -180,7 +180,7 @@ export async function updateTreeComment(
 
 export async function deleteTreeComment(shareId: string, commentId: string): Promise<void> {
   await apiFetch(
-    `/api/tree/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
+    `/api/trees/${encodeURIComponent(shareId)}/comments/${encodeURIComponent(commentId)}`,
     { method: 'DELETE' },
   );
 }
