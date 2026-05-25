@@ -30,7 +30,7 @@ export default async (request: Request) => {
 
     const userSupabase = getSupabaseAsUser(token);
     const { data: rows, error: listError } = await userSupabase
-      .from('shares')
+      .from('trees')
       .select('id, name, visibility, created_at, updated_at')
       .eq('owner_id', user.id)
       .order('updated_at', { ascending: false })
@@ -78,7 +78,7 @@ export default async (request: Request) => {
 
   const userSupabase = getSupabaseAsUser(token);
   const { data: share, error: shareError } = await userSupabase
-    .from('shares')
+    .from('trees')
     .insert({
       markdown: body.markdown,
       name: body.name ?? null,
@@ -93,11 +93,11 @@ export default async (request: Request) => {
   if (shareError) return Response.json({ error: shareError.message }, { status: 500 });
 
   const { error: memberError } = await supabase
-    .from('share_members')
-    .insert({ share_id: share.id, user_id: user.id, role: 'owner', invited_by: null });
+    .from('tree_members')
+    .insert({ tree_id: share.id, user_id: user.id, role: 'owner', invited_by: null });
 
   if (memberError) {
-    await supabase.from('shares').delete().eq('id', share.id);
+    await supabase.from('trees').delete().eq('id', share.id);
     return Response.json({ error: memberError.message }, { status: 500 });
   }
 

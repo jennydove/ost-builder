@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 
-export type ShareRole = 'owner' | 'editor' | 'viewer';
+export type TreeRole = 'owner' | 'editor' | 'viewer';
 
 export function getSupabaseAsService() {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -63,30 +63,30 @@ export async function resolveRole(
   shareId: string,
   userId: string | null,
   share: Record<string, unknown>,
-): Promise<ShareRole | null> {
+): Promise<TreeRole | null> {
   if (share.visibility === 'link-public') {
     if (!userId) return 'viewer';
     if (userId === share.owner_id) return 'owner';
     const { data } = await supabase
-      .from('share_members')
+      .from('tree_members')
       .select('role')
-      .eq('share_id', shareId)
+      .eq('tree_id', shareId)
       .eq('user_id', userId)
       .single();
-    return data ? (data.role as ShareRole) : 'viewer';
+    return data ? (data.role as TreeRole) : 'viewer';
   }
 
   if (!userId) return null;
   if (userId === share.owner_id) return 'owner';
 
   const { data } = await supabase
-    .from('share_members')
+    .from('tree_members')
     .select('role')
-    .eq('share_id', shareId)
+    .eq('tree_id', shareId)
     .eq('user_id', userId)
     .single();
 
-  if (data) return data.role as ShareRole;
+  if (data) return data.role as TreeRole;
 
   if (share.visibility === 'domain-restricted' && share.org_id) {
     const { data: orgMember } = await supabase

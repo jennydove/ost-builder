@@ -56,7 +56,7 @@ export default async (request: Request) => {
   }
 
   const { data: share, error: fetchError } = await supabase
-    .from('shares')
+    .from('trees')
     .select('*')
     .eq('id', shareId)
     .single();
@@ -77,9 +77,9 @@ export default async (request: Request) => {
     const cardIdFilter = url.searchParams.get('cardId');
 
     let query = supabase
-      .from('share_comments')
+      .from('tree_comments')
       .select('id, card_id, user_id, author_name, body, created_at')
-      .eq('share_id', shareId)
+      .eq('tree_id', shareId)
       .order('created_at', { ascending: true });
 
     if (cardIdFilter) {
@@ -122,9 +122,9 @@ export default async (request: Request) => {
 
     const userSupabase = getSupabaseAsUser(token!);
     const { data: inserted, error } = await userSupabase
-      .from('share_comments')
+      .from('tree_comments')
       .insert({
-        share_id: shareId,
+        tree_id: shareId,
         card_id: cardId,
         user_id: userId,
         author_name: userName,
@@ -182,10 +182,10 @@ export default async (request: Request) => {
     if (!commentId) return Response.json({ error: 'Missing comment id' }, { status: 400 });
 
     const { data: existing } = await supabase
-      .from('share_comments')
+      .from('tree_comments')
       .select('id, user_id')
       .eq('id', commentId)
-      .eq('share_id', shareId)
+      .eq('tree_id', shareId)
       .single();
 
     if (!existing) return Response.json({ error: 'Not found' }, { status: 404 });
@@ -195,7 +195,7 @@ export default async (request: Request) => {
     }
 
     const userSupabase = getSupabaseAsUser(token!);
-    const { error } = await userSupabase.from('share_comments').delete().eq('id', commentId);
+    const { error } = await userSupabase.from('tree_comments').delete().eq('id', commentId);
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
     return new Response(null, { status: 204 });
@@ -206,10 +206,10 @@ export default async (request: Request) => {
     if (!commentId) return Response.json({ error: 'Missing comment id' }, { status: 400 });
 
     const { data: existing } = await supabase
-      .from('share_comments')
+      .from('tree_comments')
       .select('id, user_id')
       .eq('id', commentId)
-      .eq('share_id', shareId)
+      .eq('tree_id', shareId)
       .single();
 
     if (!existing) return Response.json({ error: 'Not found' }, { status: 404 });
@@ -223,7 +223,7 @@ export default async (request: Request) => {
 
     const userSupabase = getSupabaseAsUser(token!);
     const { data: updated, error } = await userSupabase
-      .from('share_comments')
+      .from('tree_comments')
       .update({ body: parsed.data.body.trim() })
       .eq('id', commentId)
       .select('id, card_id, user_id, author_name, body, created_at')
