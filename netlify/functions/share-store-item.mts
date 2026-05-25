@@ -37,7 +37,7 @@ export default async (request: Request) => {
 
   // Fetch share
   const { data: share, error: fetchError } = await supabase
-    .from('shares')
+    .from('trees')
     .select('*')
     .eq('id', id)
     .single();
@@ -96,7 +96,7 @@ export default async (request: Request) => {
 
     const userSupabase = getSupabaseAsUser(token!);
     const { data, error } = await userSupabase
-      .from('shares')
+      .from('trees')
       .update(updates)
       .eq('id', id)
       .select('id, visibility, updated_at')
@@ -113,7 +113,7 @@ export default async (request: Request) => {
   if (request.method === 'DELETE') {
     if (role !== 'owner') return Response.json({ error: 'Only the owner can delete' }, { status: 403 });
     const userSupabase = getSupabaseAsUser(token!);
-    await userSupabase.from('shares').delete().eq('id', id);
+    await userSupabase.from('trees').delete().eq('id', id);
     return new Response(null, { status: 204 });
   }
 

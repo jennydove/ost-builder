@@ -63,7 +63,7 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
     },
     rpc: vi.fn().mockResolvedValue({ data: { allowed: true, retry_after: 0 }, error: null }),
     from: vi.fn().mockImplementation((table: string) => {
-      if (table === 'shares') {
+      if (table === 'trees') {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockImplementation((_col: string, _val: unknown) => ({
@@ -110,7 +110,7 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
         };
       }
 
-      if (table === 'share_members') {
+      if (table === 'tree_members') {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
@@ -131,7 +131,7 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
         };
       }
 
-      if (table === 'share_comments') {
+      if (table === 'tree_comments') {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockImplementation((_col: string, _val: unknown) => ({
