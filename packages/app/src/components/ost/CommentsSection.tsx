@@ -13,6 +13,7 @@ import {
   type TreeComment,
 } from '@/lib/treeApi';
 import { toast } from '@/components/ui/use-toast';
+import { SignInButtons } from '@/components/auth/SignInButtons';
 
 type Props = {
   cardId: string;
@@ -151,13 +152,7 @@ export function CommentsSection({ cardId }: Props) {
     }
   };
 
-  const handleSignIn = async () => {
-    if (!supabaseConfigured) return;
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin + window.location.pathname },
-    });
-  };
+  const signInRedirect = window.location.origin + window.location.pathname;
 
   return (
     <div className="space-y-3 pt-4 border-t border-border">
@@ -278,9 +273,7 @@ export function CommentsSection({ cardId }: Props) {
       ) : (
         <div className="rounded-md bg-muted/50 p-3 space-y-2">
           <p className="text-xs text-muted-foreground">Sign in to comment.</p>
-          <Button size="sm" variant="outline" className="w-full" onClick={() => void handleSignIn()}>
-            Sign in with Google
-          </Button>
+          <SignInButtons redirectTo={signInRedirect} size="sm" />
         </div>
       )}
     </div>

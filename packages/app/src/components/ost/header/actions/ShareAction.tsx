@@ -16,6 +16,7 @@ import {
 } from '@/lib/treeApi';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import { toast } from '@/components/ui/use-toast';
+import { SignInButtons } from '@/components/auth/SignInButtons';
 import {
   Dialog,
   DialogContent,
@@ -214,20 +215,20 @@ export function ShareAction() {
 
   if (!loggedIn) {
     return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="gap-2"
-        onClick={() =>
-          void supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: window.location.href },
-          })
-        }
-      >
-        <Share2 className="w-4 h-4" />
-        <span className="hidden sm:inline">Share</span>
-      </Button>
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="sm" className="gap-2">
+            <Share2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Share</span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Sign in to share</DialogTitle>
+          </DialogHeader>
+          <SignInButtons />
+        </DialogContent>
+      </Dialog>
     );
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { SignInButtons } from '@/components/auth/SignInButtons';
 import { getTree } from '@/lib/treeApi';
 import { setActiveLocalSnapshotSourceKey, upsertShareSnapshot } from '@/lib/localSnapshots';
 import { useOSTStore } from '@/store/ostStore';
@@ -82,21 +83,7 @@ export default function StoredShareOpen() {
             <p className="text-sm text-muted-foreground">
               Sign in to view this share.
             </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  void import('@/lib/supabaseClient').then(({ supabase }) =>
-                    supabase.auth.signInWithOAuth({
-                      provider: 'google',
-                      options: { redirectTo: `${window.location.origin}/s/${id}` },
-                    })
-                  );
-                }}
-              >
-                Sign in with Google
-              </Button>
-            </div>
+            <SignInButtons redirectTo={`${window.location.origin}/s/${id}`} />
           </>
         )}
         {state.kind === 'unavailable' && (
