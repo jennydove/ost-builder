@@ -28,7 +28,7 @@ OST (Opportunity Solution Tree) builder — React + Vite frontend, Netlify Funct
 **Key packages:**
 - `packages/app` — React frontend
 - `packages/shared` — shared types + markdown serialization
-- `packages/cli` — npm CLI tool (legacy auth/library commands disabled pending Phase E PAT-based rebuild — see `docs/codebase-audit-2026-05-22.md`)
+- `packages/cli` — npm CLI tool (PAT-based auth, library list/upload/download — see `docs/cli.md`)
 - `netlify/functions/` — live backend (Supabase JWT auth, RLS defense-in-depth)
 
 ## Current Work Context

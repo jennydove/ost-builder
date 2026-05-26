@@ -1,4 +1,4 @@
-# Continuity Brief (2026-05-24)
+# Continuity Brief (2026-05-25)
 
 This document exists so any Claude session can read it and pick up without losing context.
 
@@ -6,57 +6,41 @@ This document exists so any Claude session can read it and pick up without losin
 
 ## Immediate next action
 
-**Apply migration and merge PR #18.** This completes Task 9 / Phase B / Phase G.
+**Apply migration 0009 and deploy the sharing feature.**
 
-1. Jenny runs `supabase db push` (applies `0003_phase_g.sql`)
-2. Merge PR #18 (`task-9/code-migration`)
-3. Verify: create a share, read as anonymous, post a comment
-4. Commit `0004_tighten_visibility_check.sql` — tightens CHECK to only accept new visibility values
+1. Jenny runs `supabase db push` (applies `0009_tree_member_invites.sql`)
+2. Deploy code to Netlify (backward-compatible — works before migration, invite features activate after)
+3. Test the full invite flow: share a tree, invite by email, recipient signs in, auto-claim grants access
 
-`SUPABASE_ANON_KEY` is already in Netlify env vars (confirmed via CLI).
+### What migration 0009 changes
 
-### What PR #18 changes
+- `tree_members.user_id` becomes nullable (pending invites have no user yet)
+- New `invited_email` column for email-based invites
+- Backfills existing members' emails from `auth.users`
+- CHECK constraint: either `user_id` or `invited_email` must be set
+- Case-insensitive unique index on `(tree_id, lower(invited_email))`
 
-- `resolveRole`: `link-public` / `domain-restricted` (checks `org_members` via `org_id`) / `restricted`
-- Write operations use `getSupabaseAsUser(jwt)` — RLS defense-in-depth
-- `share-store` GET list uses user-context (RLS filters)
-- Frontend: generic visibility labels, "Sign in to view" copy, no mozost fallback
-- All tests updated (316 unit, 22 resolveRole cases with org_members mock)
+### What the code changes (already on main)
+
+- New `tree-members.mts` endpoint — CRUD for member management (`/api/trees/:id/members`)
+- `resolveRole` auto-claims pending invites by email on first tree access
+- Google Docs-style share dialog: email input + role picker, member list, general access, copy link
+- Invite email via Resend
+- Deleted dead `CloudShareAction.tsx`, consolidated into `ShareAction.tsx`
 
 ## Phase status
 
 | Phase | Status | Notes |
 |---|---|---|
 | A — clear the decks | ✅ | |
-| B — close security gaps | **PR #18 ready** | Blocked on `supabase db push` |
-| C — testing safety net | ✅ | 316 unit tests, 16 E2E, GitHub Actions CI |
-| D — performance | ✅ | Bundle 684→360 kB (-47%), no per-keystroke network calls, ostStore sliced |
-| E — CLI revival | **next** | Depends on Phase B landing |
-| F — repo hygiene | **2 items left** | DEPLOYMENT.md + runbook.md done. Remaining: test audit cadence, mozilla vault CLAUDE.md |
-| G — de-Mozilla | **In PR #18** | Bundled with Task 9 |
-| H — rename share → tree | not started | After Phase B. Todoist `6ghfxgQ43Fr9jwjc` |
-
-## After Phase B lands
-
-### Phase E — CLI revival (highest priority)
-
-The CLI is the AI-agent product surface. Current CLI has legacy auth (HMAC/GitHub OAuth) that doesn't work against Supabase.
-
-1. **Schema:** `cli_tokens` table (user_id, token_hash, label, last_used_at, expires_at)
-2. **Endpoints:** `POST /api/cli/tokens` (issue), `DELETE /api/cli/tokens/:id` (revoke), `GET /api/cli/tokens` (list)
-3. **CLI auth:** `ost-builder auth login <token>` stores PAT in `~/.config/ost-builder/cli-session.json`
-4. **Frontend:** `/settings/tokens` page for generating PATs
-5. **CLI commands:** verify `library list`, `library upload`, `library download` work end-to-end
-6. **Docs:** `docs/cli.md` with agent-driven usage examples
-
-### Phase H — rename share → tree
-
-Separate migration: rename tables (`shares` → `trees`, `share_members` → `tree_members`, `share_comments` → `tree_comments`), update all RLS policy references, update all code. Grep-and-replace scope is large but mechanical. Test suite catches regressions.
-
-### Phase F remaining
-
-- Set up weekly test-quality audit (scheduled task or `/loop`)
-- Update Mozilla vault CLAUDE.md to remove ost-builder references (it's now a standalone repo at `~/projects/ost-builder`)
+| B — close security gaps | ✅ | Migrations 0003–0004, RLS, RBAC |
+| C — testing safety net | ✅ | 328 unit tests, 60 E2E, GitHub Actions CI |
+| D — performance | ✅ | Bundle 684→360 kB (-47%), no per-keystroke network calls |
+| E — CLI revival | ✅ | PAT auth, library commands, `/settings` token page |
+| F — repo hygiene | ✅ | DEPLOYMENT.md, runbook.md, test audit cadence |
+| G — de-Mozilla | ✅ | Generic visibility labels, no mozost fallback |
+| H — rename share → tree | ✅ | 3 tables, 15 RLS policies, 6 functions, all types |
+| Sharing feature | ✅ code, ⏳ migration | Google Docs-style invite-by-email, migration 0009 pending |
 
 ## Decisions (don't relitigate)
 
@@ -65,9 +49,11 @@ Separate migration: rename tables (`shares` → `trees`, `share_members` → `tr
 3. Three roles only: owner / editor / viewer.
 4. Visibility model: `link-public` / `domain-restricted` / `restricted`.
 5. Last-owner enforcement: Postgres trigger (in 0003).
-6. Phase H rename: separate from Phase G.
-7. Service-role for: JWT verification, resolveRole, rate limiting, member bootstrap, admin getUserById. User-context for: data writes (RLS backstop), share list query.
-8. CLI auth: PATs, not OAuth dance. Stored as hashed tokens in `cli_tokens` table.
+6. Service-role for: JWT verification, resolveRole, rate limiting, member bootstrap, admin getUserById. User-context for: data writes (RLS backstop), share list query.
+7. CLI auth: PATs, not OAuth dance. Stored as hashed tokens in `cli_tokens` table.
+8. SECURITY DEFINER functions (`is_tree_member`, `tree_member_role`, `is_org_member`) bypass RLS for membership lookups to avoid infinite recursion.
+9. Only owners can manage members (add/change role/remove). Matches Google Docs model.
+10. Pending invites stored in `tree_members` with nullable `user_id` — auto-claimed via `resolveRole` on first access.
 
 ## Conventions
 
@@ -78,11 +64,11 @@ GIT_COMMITTER_NAME="Jenny Wanger"
 git commit --author "Jenny Wanger <63123756+jennydove@users.noreply.github.com>" -m "..."
 ```
 
-**Pre-commit gate.** `npm test && npm run build && npm run test:e2e` — all 316 unit + 16 E2E must pass.
+**Pre-commit gate.** `npm test && npm run build && npm run test:e2e` — all 328 unit + 60 E2E must pass.
 
 **Migrations.** Two-PR pattern: SQL-only PR first → `supabase db push` → code PR second.
 
-**Bundle analysis.** `npm run analyze` opens treemap. Current: 360 kB initial (116 kB gz), 171 kB editor chunk (48 kB gz).
+**Bundle analysis.** `npm run analyze` opens treemap. Current: 360 kB initial (116 kB gz).
 
 ## Key paths
 
@@ -92,11 +78,9 @@ git commit --author "Jenny Wanger <63123756+jennydove@users.noreply.github.com>"
 | RBAC model | `docs/rbac.md` |
 | Deployment guide | `docs/DEPLOYMENT.md` |
 | Runbook | `docs/runbook.md` |
+| CLI docs | `docs/cli.md` |
 | Vocabulary | `docs/taxonomy.md` |
 | Store slices | `packages/app/src/store/slices/` |
 | Supabase project | `https://yxmcfxggyxroiiaxzfbq.supabase.co` |
 | Production app | `https://mozost.netlify.app` |
 | GitHub repo | `https://github.com/jennydove/ost-builder` |
-| Todoist audit parent | `6ghCqHw7Fx7pP2rR` |
-| Todoist Phase E parent | `6ghCqP9mXRXHcMxR` |
-| Todoist Phase H parent | `6ghfxgQ43Fr9jwjc` |

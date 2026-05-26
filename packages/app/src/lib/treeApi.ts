@@ -184,3 +184,55 @@ export async function deleteTreeComment(shareId: string, commentId: string): Pro
     { method: 'DELETE' },
   );
 }
+
+export type TreeMember = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: TreeRole;
+  pending: boolean;
+  createdAt: number;
+};
+
+export async function listTreeMembers(
+  treeId: string,
+): Promise<{ members: TreeMember[] }> {
+  return apiFetch(`/api/trees/${encodeURIComponent(treeId)}/members`);
+}
+
+export async function addTreeMember(
+  treeId: string,
+  email: string,
+  role: 'viewer' | 'editor',
+): Promise<{ member: TreeMember }> {
+  return apiFetch(`/api/trees/${encodeURIComponent(treeId)}/members`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, role }),
+  });
+}
+
+export async function updateTreeMemberRole(
+  treeId: string,
+  memberId: string,
+  role: 'viewer' | 'editor',
+): Promise<{ member: TreeMember }> {
+  return apiFetch(
+    `/api/trees/${encodeURIComponent(treeId)}/members/${encodeURIComponent(memberId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    },
+  );
+}
+
+export async function removeTreeMember(
+  treeId: string,
+  memberId: string,
+): Promise<void> {
+  await apiFetch(
+    `/api/trees/${encodeURIComponent(treeId)}/members/${encodeURIComponent(memberId)}`,
+    { method: 'DELETE' },
+  );
+}

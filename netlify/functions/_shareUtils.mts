@@ -58,11 +58,36 @@ export async function resolveAuthUser(
   return { userId: user.id, userName: name };
 }
 
+async function claimPendingInvite(
+  supabase: ReturnType<typeof getSupabaseAsService>,
+  treeId: string,
+  userId: string,
+  email: string,
+): Promise<TreeRole | null> {
+  const { data: pending } = await supabase
+    .from('tree_members')
+    .select('id, role')
+    .eq('tree_id', treeId)
+    .ilike('invited_email', email)
+    .is('user_id', null)
+    .single();
+
+  if (!pending) return null;
+
+  await supabase
+    .from('tree_members')
+    .update({ user_id: userId })
+    .eq('id', pending.id);
+
+  return pending.role as TreeRole;
+}
+
 export async function resolveRole(
   supabase: ReturnType<typeof getSupabaseAsService>,
   shareId: string,
   userId: string | null,
   share: Record<string, unknown>,
+  userEmail?: string | null,
 ): Promise<TreeRole | null> {
   if (share.visibility === 'link-public') {
     if (!userId) return 'viewer';
@@ -73,7 +98,14 @@ export async function resolveRole(
       .eq('tree_id', shareId)
       .eq('user_id', userId)
       .single();
-    return data ? (data.role as TreeRole) : 'viewer';
+    if (data) return data.role as TreeRole;
+
+    if (userEmail) {
+      const claimed = await claimPendingInvite(supabase, shareId, userId, userEmail);
+      if (claimed) return claimed;
+    }
+
+    return 'viewer';
   }
 
   if (!userId) return null;
@@ -87,6 +119,11 @@ export async function resolveRole(
     .single();
 
   if (data) return data.role as TreeRole;
+
+  if (userEmail) {
+    const claimed = await claimPendingInvite(supabase, shareId, userId, userEmail);
+    if (claimed) return claimed;
+  }
 
   if (share.visibility === 'domain-restricted' && share.org_id) {
     const { data: orgMember } = await supabase
