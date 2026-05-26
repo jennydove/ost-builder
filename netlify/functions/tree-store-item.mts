@@ -30,9 +30,11 @@ export default async (request: Request) => {
 
   // Resolve user from token (optional for GET)
   let userId: string | null = null;
+  let userEmail: string | null = null;
   if (token) {
     const { data: { user } } = await supabase.auth.getUser(token);
     userId = user?.id ?? null;
+    userEmail = user?.email ?? null;
   }
 
   // Fetch share
@@ -47,7 +49,7 @@ export default async (request: Request) => {
   }
   if (fetchError) return Response.json({ error: fetchError.message }, { status: 500 });
 
-  const role = await resolveRole(supabase, id, userId, share as Record<string, unknown>);
+  const role = await resolveRole(supabase, id, userId, share as Record<string, unknown>, userEmail);
 
   if (request.method === 'GET') {
     if (!role) return Response.json({ error: 'Sign in to view this share', reason: 'auth_required' }, { status: 401 });

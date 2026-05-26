@@ -1,10 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { resolveRole, type TreeRole } from '../../../../netlify/functions/_shareUtils.mts';
 
-function mockSupabase(memberRole: TreeRole | null, isOrgMember = false) {
+function mockSupabase(memberRole: TreeRole | null, isOrgMember = false, pendingInviteRole: TreeRole | null = null) {
   const memberSingle = vi.fn().mockResolvedValue(
     memberRole
       ? { data: { role: memberRole }, error: null }
+      : { data: null, error: { code: 'PGRST116' } },
+  );
+  const pendingSingle = vi.fn().mockResolvedValue(
+    pendingInviteRole
+      ? { data: { id: 'pending-1', role: pendingInviteRole }, error: null }
       : { data: null, error: { code: 'PGRST116' } },
   );
   const orgSingle = vi.fn().mockResolvedValue(
@@ -13,6 +18,7 @@ function mockSupabase(memberRole: TreeRole | null, isOrgMember = false) {
       : { data: null, error: { code: 'PGRST116' } },
   );
 
+  let memberCallCount = 0;
   const from = vi.fn().mockImplementation((table: string) => {
     if (table === 'org_members') {
       return {
@@ -23,11 +29,17 @@ function mockSupabase(memberRole: TreeRole | null, isOrgMember = false) {
         }),
       };
     }
+    memberCallCount++;
+    const builder: Record<string, any> = {};
+    const terminal = memberCallCount === 1 ? memberSingle : pendingSingle;
+    for (const m of ['eq', 'ilike', 'is']) {
+      builder[m] = vi.fn().mockReturnValue(builder);
+    }
+    builder.single = terminal;
     return {
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({ single: memberSingle }),
-        }),
+      select: vi.fn().mockReturnValue(builder),
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
       }),
     };
   });
@@ -189,6 +201,34 @@ describe('resolveRole', () => {
       const sb = mockSupabase(null);
       const result = await resolveRole(sb as any, 'share-1', null, share('something-else'));
       expect(result).toBeNull();
+    });
+  });
+
+  // --- pending invite claiming ---
+
+  describe('pending invite claiming', () => {
+    it('claims pending invite by email on restricted share', async () => {
+      const sb = mockSupabase(null, false, 'editor');
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('restricted'), 'user@example.com');
+      expect(result).toBe('editor');
+    });
+
+    it('claims pending invite by email on link-public share', async () => {
+      const sb = mockSupabase(null, false, 'viewer');
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('link-public'), 'user@example.com');
+      expect(result).toBe('viewer');
+    });
+
+    it('does not claim when no userEmail provided', async () => {
+      const sb = mockSupabase(null, false, 'editor');
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('restricted'));
+      expect(result).toBeNull();
+    });
+
+    it('existing member role takes precedence over pending invite', async () => {
+      const sb = mockSupabase('viewer', false, 'editor');
+      const result = await resolveRole(sb as any, 'share-1', 'user-a', share('restricted'), 'user@example.com');
+      expect(result).toBe('viewer');
     });
   });
 });

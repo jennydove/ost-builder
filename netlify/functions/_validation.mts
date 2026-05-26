@@ -43,6 +43,19 @@ export const UpdateCommentBodySchema = z
   })
   .strict();
 
+export const AddMemberBodySchema = z
+  .object({
+    email: z.string().email().max(320),
+    role: z.enum(['viewer', 'editor']),
+  })
+  .strict();
+
+export const UpdateMemberRoleSchema = z
+  .object({
+    role: z.enum(['viewer', 'editor']),
+  })
+  .strict();
+
 export type ValidationFailure = {
   ok: false;
   response: Response;

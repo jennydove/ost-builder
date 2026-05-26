@@ -43,10 +43,12 @@ export default async (request: Request) => {
 
   let userId: string | null = null;
   let userName: string | null = null;
+  let userEmail: string | null = null;
 
   if (token) {
     const { data: { user } } = await supabase.auth.getUser(token);
     userId = user?.id ?? null;
+    userEmail = user?.email ?? null;
     const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
     userName =
       (meta.full_name as string | undefined) ||
@@ -66,7 +68,7 @@ export default async (request: Request) => {
   }
   if (fetchError) return Response.json({ error: fetchError.message }, { status: 500 });
 
-  const role = await resolveRole(supabase, shareId, userId, share as Record<string, unknown>);
+  const role = await resolveRole(supabase, shareId, userId, share as Record<string, unknown>, userEmail);
 
   if (request.method === 'GET') {
     if (!role) {

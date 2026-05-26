@@ -94,7 +94,7 @@ export default async (request: Request) => {
 
   const { error: memberError } = await supabase
     .from('tree_members')
-    .insert({ tree_id: share.id, user_id: user.id, role: 'owner', invited_by: null });
+    .insert({ tree_id: share.id, user_id: user.id, role: 'owner', invited_by: null, invited_email: user.email });
 
   if (memberError) {
     await supabase.from('trees').delete().eq('id', share.id);
