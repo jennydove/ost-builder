@@ -12,13 +12,13 @@ async function sendInviteEmail(opts: {
   role: string;
 }): Promise<void> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return;
+  if (!key) { console.warn('sendInviteEmail: RESEND_API_KEY not set'); return; }
   const from = process.env.RESEND_FROM_ADDRESS || 'OST Builder <onboarding@resend.dev>';
   const appUrl = process.env.APP_BASE_URL;
-  if (!appUrl) return;
+  if (!appUrl) { console.warn('sendInviteEmail: APP_BASE_URL not set'); return; }
 
   const payload = composeInviteEmail({ ...opts, from, appUrl });
-  await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
@@ -26,6 +26,10 @@ async function sendInviteEmail(opts: {
     },
     body: JSON.stringify(payload),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error(`sendInviteEmail failed: ${res.status} ${body}`);
+  }
 }
 
 export default async (request: Request) => {
@@ -128,7 +132,6 @@ export default async (request: Request) => {
         user_id: null,
         invited_email: email,
         role: inviteRole,
-        invited_by: user.id,
       })
       .select('id, invited_email, role, created_at')
       .single();
@@ -150,7 +153,7 @@ export default async (request: Request) => {
       treeName: (tree.name as string) || 'Untitled OST',
       treeId,
       role: inviteRole,
-    }).catch(() => {});
+    }).catch((err) => console.error('sendInviteEmail error:', err));
 
     return Response.json(
       {
