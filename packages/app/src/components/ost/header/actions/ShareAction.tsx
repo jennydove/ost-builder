@@ -317,13 +317,13 @@ export function ShareAction() {
               {membersLoading ? (
                 <p className="text-sm text-muted-foreground py-2">Loading...</p>
               ) : (
-                <div className="space-y-1 max-h-48 overflow-y-auto">
+                <div className="space-y-1 max-h-48 overflow-y-auto overflow-x-hidden">
                   {members.map((m) => (
                     <div
                       key={m.id}
-                      className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50"
+                      className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50 min-w-0"
                     >
-                      <Avatar className="h-7 w-7">
+                      <Avatar className="h-7 w-7 shrink-0">
                         <AvatarFallback className="text-xs">
                           {initials(m.name, m.email)}
                         </AvatarFallback>
@@ -340,7 +340,7 @@ export function ShareAction() {
                         )}
                       </div>
                       {m.role === 'owner' ? (
-                        <span className="text-xs text-muted-foreground px-2">Owner</span>
+                        <span className="text-xs text-muted-foreground px-2 shrink-0">Owner</span>
                       ) : (
                         <>
                           <Select
@@ -349,7 +349,7 @@ export function ShareAction() {
                               void handleRoleChange(m.id, v as 'viewer' | 'editor')
                             }
                           >
-                            <SelectTrigger className="w-[90px] h-7 text-xs">
+                            <SelectTrigger className="w-[90px] h-7 text-xs shrink-0">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -360,7 +360,7 @@ export function ShareAction() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-7 w-7 shrink-0"
                             onClick={() => void handleRemove(m.id)}
                           >
                             <X className="w-3 h-3" />
