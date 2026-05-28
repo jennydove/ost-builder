@@ -36,14 +36,6 @@ export const TreeNode = memo(function TreeNode({ cardId, depth = 0 }: TreeNodePr
     data: { cardId, type: card?.type },
   });
 
-  if (!card) return null;
-
-  const canAddChildren = card.type !== 'experiment';
-  const childType = childTypeMap[card.type];
-  const isExperimentParent = card.type === 'solution';
-  const useHorizontalExperiments = isExperimentParent && experimentLayout === 'horizontal';
-  const useVerticalExperiments = isExperimentParent && experimentLayout === 'vertical';
-
   const lineContainerRef = useRef<HTMLDivElement>(null);
   const firstChildRef = useRef<HTMLDivElement>(null);
   const lastChildRef = useRef<HTMLDivElement>(null);
@@ -52,6 +44,12 @@ export const TreeNode = memo(function TreeNode({ cardId, depth = 0 }: TreeNodePr
   const firstVerticalRef = useRef<HTMLDivElement>(null);
   const lastVerticalRef = useRef<HTMLDivElement>(null);
   const [verticalLineStyle, setVerticalLineStyle] = useState<CSSProperties>({});
+
+  const canAddChildren = card && card.type !== 'experiment';
+  const childType = card ? childTypeMap[card.type] : null;
+  const isExperimentParent = card?.type === 'solution';
+  const useHorizontalExperiments = isExperimentParent && experimentLayout === 'horizontal';
+  const useVerticalExperiments = isExperimentParent && experimentLayout === 'vertical';
 
   useLayoutEffect(() => {
     if (childIds.length < 2) {
@@ -107,6 +105,8 @@ export const TreeNode = memo(function TreeNode({ cardId, depth = 0 }: TreeNodePr
 
     return () => observer.disconnect();
   }, [childIds.length, layoutDirection, experimentLayout]);
+
+  if (!card || !childType) return null;
 
   const handleAddChild = () => {
     addCard(childType, card.id);

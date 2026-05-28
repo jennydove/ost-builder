@@ -178,7 +178,7 @@ export const createCardSlice: StateCreator<OSTStore, [], [], CardSlice> = (set, 
     };
 
     const cards = { ...state.tree.cards, [id]: copied };
-    let rootIds = [...state.tree.rootIds];
+    const rootIds = [...state.tree.rootIds];
 
     if (original.parentId && cards[original.parentId]) {
       const siblings = cards[original.parentId].children;
@@ -220,7 +220,7 @@ export const createCardSlice: StateCreator<OSTStore, [], [], CardSlice> = (set, 
     };
 
     const newRootId = cloneSubtree(original.id, original.parentId);
-    let rootIds = [...state.tree.rootIds];
+    const rootIds = [...state.tree.rootIds];
 
     if (original.parentId && cards[original.parentId]) {
       const siblings = cards[original.parentId].children;

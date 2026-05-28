@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { parseMarkdownToTree } from '@ost-builder/shared';
 import { useOSTStore } from '@/store/ostStore';
 
 const SIMPLE_MD = `# Test Tree
@@ -15,11 +16,7 @@ function resetStore(markdown?: string) {
   useOSTStore.setState({
     ...useOSTStore.getState(),
     markdown: markdown ?? SIMPLE_MD,
-    tree: (() => {
-      // Importing dynamically would be cleaner, but the store already does this
-      const { parseMarkdownToTree } = require('@ost-builder/shared');
-      return parseMarkdownToTree(markdown ?? SIMPLE_MD);
-    })(),
+    tree: parseMarkdownToTree(markdown ?? SIMPLE_MD),
     projectName: 'Test Tree',
     selectedCardId: null,
     editingCardId: null,
