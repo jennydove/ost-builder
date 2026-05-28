@@ -5,7 +5,7 @@
 - **Frontend:** React + Vite, deployed as static files on Netlify
 - **Backend:** Netlify Functions (TypeScript, `netlify/functions/`)
 - **Database:** Supabase (Postgres + Auth + RLS)
-- **Email:** Resend (comment notifications)
+- **Email:** Resend (invite emails + comment notifications)
 
 ## Netlify Setup
 
@@ -46,7 +46,7 @@ Without these, the app runs in local-only mode (no login, no cloud sync, no comm
 ### Project
 
 - **URL:** `https://yxmcfxggyxroiiaxzfbq.supabase.co`
-- **Auth provider:** Google OAuth
+- **Auth providers:** Google OAuth + Email/Password (both enabled in Supabase dashboard → Authentication → Providers)
 
 ### Google OAuth redirect URI
 
@@ -70,6 +70,12 @@ Each migration is committed as a numbered SQL file (`0001_baseline.sql`, `0002_r
 1. `0001_baseline.sql` — tables (shares, share_members, share_comments), indexes
 2. `0002_rate_limits.sql` — rate_limits table + consume_rate_limit RPC
 3. `0003_phase_g.sql` — organizations, org_members, visibility rename, RLS policies, last-owner triggers
+4. `0004_tighten_visibility_check.sql` — visibility CHECK constraint tightening
+5. `0005_cli_tokens.sql` — `cli_tokens` table for PAT-based CLI auth
+6. `0006_rename_share_to_tree.sql` — rename `shares` → `trees`, `share_members` → `tree_members`, `share_comments` → `tree_comments` (3 tables, 15 RLS policies, 6 functions)
+7. `0007_drop_share_views.sql` — drop legacy backward-compat views from the rename
+8. `0008_fix_recursive_rls.sql` — SECURITY DEFINER helpers (`is_tree_member`, `tree_member_role`, `is_org_member`) to break RLS recursion
+9. `0009_tree_member_invites.sql` — email-based invites: `user_id` nullable, `invited_email` column, case-insensitive unique index
 
 ### Service-role key rotation
 
@@ -83,3 +89,14 @@ Each migration is committed as a numbered SQL file (`0001_baseline.sql`, `0002_r
 1. Push to `main` (or merge PR) → Netlify auto-builds and deploys
 2. If the PR includes a migration file → apply via `supabase db push` before or after merge depending on the PR instructions
 3. Netlify deploy takes ~1-2 minutes
+
+## CI
+
+GitHub Actions (`.github/workflows/`):
+
+- **`ci.yml`** — runs on every PR and push to `main`. Four jobs:
+  - `unit-tests` — `npm test` + coverage upload
+  - `build` — `npm run build`
+  - `e2e` — Playwright (Chromium + Firefox), runs after `build`
+  - `lint` — `npm run lint` (eslint). Errors fail the job. Note: lint is NOT part of the local pre-commit gate (`npm test && npm run build && npm run test:e2e`) — CI catches it.
+- **`claude-review.yml`** — runs on every PR open/synchronize. Uses `anthropics/claude-code-action@v1` to post inline review comments for correctness, security, and convention issues. Requires `ANTHROPIC_API_KEY` repo secret.
