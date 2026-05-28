@@ -1,0 +1,42 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+concurrency:
+  group: claude-review-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review the diff on this PR for correctness, security, and adherence to project conventions.
+
+            Project context lives in CLAUDE.md and docs/continuity.md — read them before reviewing.
+
+            Focus on:
+            - Real correctness bugs (not style nits)
+            - Security issues: auth bypass, RLS gaps, secrets, injection, missing validation
+            - Breaking changes to schema, RLS policies, or API contracts
+            - Test coverage gaps for the change being made
+
+            Post findings as inline review comments on the specific lines. If the PR looks clean, post a single approval comment instead.
+
+            Skip: documentation polish, trivial refactors, opinion-based feedback.
