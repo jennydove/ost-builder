@@ -14,10 +14,10 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prepare": "npm run build && npm run prepublishOnly",
+    "prepack": "npm run build && npm run prepublishOnly",
     "prepublishOnly": "cp ../../README.md ./README.md",
     "test": "echo \"no tests\"",
-    "release": "npm run prepare && npx np --branch main"
+    "release": "npm run prepack && npx np --branch main"
   },
   "dependencies": {
     "@ost-builder/shared": "^0.4.0"

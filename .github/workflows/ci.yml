@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci --ignore-scripts
+      - run: npm ci
       - run: npm -w @ost-builder/shared run build
       - run: npm test
       - run: npm run test:coverage
@@ -38,7 +38,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci --ignore-scripts
+      - run: npm ci
       - run: npm -w @ost-builder/shared run build
       - run: npm run build
 
@@ -51,7 +51,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci --ignore-scripts
+      - run: npm ci
       - run: npm -w @ost-builder/shared run build
       - run: npx playwright install --with-deps chromium firefox
       - run: npm run build
@@ -71,6 +71,6 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci --ignore-scripts
+      - run: npm ci
       - run: npm -w @ost-builder/shared run build
       - run: npm run lint
