@@ -147,13 +147,17 @@ export default async (request: Request) => {
     const inviterName =
       (meta.full_name as string) || (meta.name as string) || user.email || 'Someone';
 
-    void sendInviteEmail({
-      to: email,
-      inviterName,
-      treeName: (tree.name as string) || 'Untitled OST',
-      treeId,
-      role: inviteRole,
-    }).catch((err) => console.error('sendInviteEmail error:', err));
+    try {
+      await sendInviteEmail({
+        to: email,
+        inviterName,
+        treeName: (tree.name as string) || 'Untitled OST',
+        treeId,
+        role: inviteRole,
+      });
+    } catch (err) {
+      console.error('sendInviteEmail error:', err);
+    }
 
     return Response.json(
       {

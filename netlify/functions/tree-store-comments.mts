@@ -20,7 +20,7 @@ async function sendCommentEmail(opts: {
 
   const payload = composeCommentEmail({ ...opts, from, appUrl });
 
-  await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
@@ -28,6 +28,10 @@ async function sendCommentEmail(opts: {
     },
     body: JSON.stringify(payload),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error(`sendCommentEmail failed: ${res.status} ${body}`);
+  }
 }
 
 export default async (request: Request) => {
@@ -137,17 +141,16 @@ export default async (request: Request) => {
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
-    // Fire-and-forget owner notification, capped to 5 emails per share per minute
+    // Owner notification, capped to 5 emails per share per minute.
+    // Awaited because Netlify can tear down the function container after returning.
     if (userId !== share.owner_id) {
-      void (async () => {
-        try {
-          const emailRl = await checkRateLimit(supabase, {
-            key: `email:share:${shareId}`,
-            limit: 5,
-            windowSeconds: 60,
-          });
-          if (!emailRl.allowed) return;
-
+      try {
+        const emailRl = await checkRateLimit(supabase, {
+          key: `email:share:${shareId}`,
+          limit: 5,
+          windowSeconds: 60,
+        });
+        if (emailRl.allowed) {
           const { data: ownerData } = await supabase.auth.admin.getUserById(share.owner_id as string);
           if (ownerData?.user?.email) {
             await sendCommentEmail({
@@ -158,10 +161,10 @@ export default async (request: Request) => {
               body,
             });
           }
-        } catch {
-          // best-effort
         }
-      })();
+      } catch (err) {
+        console.error('sendCommentEmail error:', err);
+      }
     }
 
     return Response.json(
