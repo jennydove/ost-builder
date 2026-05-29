@@ -10,6 +10,20 @@ npm test && npm run build && npm run test:e2e
 
 All unit tests and all 60 E2E tests must pass (Chromium + Firefox) before committing. If a test fails, fix the regression first — do not commit around it.
 
+## When to Open a PR vs. Push to Main
+
+Open a PR (to trigger the Claude PR review workflow) for changes that touch:
+- Netlify functions or API endpoints
+- Database schema or migrations
+- RLS policies or auth flows
+- New user-facing features
+
+Push directly to `main` for:
+- Styling-only tweaks, copy edits
+- Dependency bumps
+- CI/workflow/tooling changes
+- Documentation
+
 ## Testing Requirements
 
 Every change must include appropriate tests:
