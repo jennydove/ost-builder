@@ -240,7 +240,7 @@ export function ShareAction() {
           <span className="hidden sm:inline">Share</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Share</DialogTitle>
         </DialogHeader>
