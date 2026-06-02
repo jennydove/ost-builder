@@ -248,7 +248,11 @@ export default function Library() {
     }
 
     loadFromStoredShare(payload);
-    navigate('/');
+    if (cloudId) {
+      navigate(`/s/${cloudId}`);
+    } else {
+      navigate('/');
+    }
   };
 
   const removeItem = async (id: string) => {

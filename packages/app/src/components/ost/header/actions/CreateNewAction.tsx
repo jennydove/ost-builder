@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CirclePlus } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import {
 
 export function CreateNewAction() {
   const { createNewTree } = useOSTStore();
+  const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
 
   const createAndSave = (markdown: string, name: string) => {
@@ -27,6 +29,7 @@ export function CreateNewAction() {
       collapsedIds: [],
     });
     setActiveLocalSnapshotSourceKey(sourceKey);
+    navigate('/');
     setCreateOpen(false);
   };
 
