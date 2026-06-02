@@ -1,4 +1,5 @@
 import { ProjectName } from './header/ProjectName';
+import { SaveStatusIndicator } from './header/SaveStatusIndicator';
 import { MarkdownEditorAction } from './header/actions/MarkdownEditorAction';
 import { UploadAction } from './header/actions/UploadAction';
 import { LibraryAction } from './header/actions/LibraryAction';
@@ -18,6 +19,7 @@ export function Header() {
           className="w-9 h-9 rounded-lg"
         />
         <ProjectName />
+        <SaveStatusIndicator />
       </div>
 
       <div className="flex items-center gap-2">

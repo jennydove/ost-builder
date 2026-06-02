@@ -4,9 +4,10 @@ import { parseMarkdownToTree } from '@ost-builder/shared';
 import { createCanvasSlice, type CanvasSlice } from './slices/canvasSlice';
 import { createCardSlice, type CardSlice } from './slices/cardSlice';
 import { createCommentSlice, type CommentSlice } from './slices/commentSlice';
+import { createSyncSlice, type SyncSlice } from './slices/syncSlice';
 import { createTreeSlice, type TreeSlice, defaultProjectName } from './slices/treeSlice';
 
-export type OSTStore = CanvasSlice & CardSlice & CommentSlice & TreeSlice;
+export type OSTStore = CanvasSlice & CardSlice & CommentSlice & SyncSlice & TreeSlice;
 
 export const useOSTStore = create<OSTStore>()(
   persist(
@@ -14,6 +15,7 @@ export const useOSTStore = create<OSTStore>()(
       ...createCanvasSlice(...a),
       ...createCardSlice(...a),
       ...createCommentSlice(...a),
+      ...createSyncSlice(...a),
       ...createTreeSlice(...a),
     }),
     {

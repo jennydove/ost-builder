@@ -8,6 +8,7 @@ import { useOSTStore } from '@/store/ostStore';
 import { decodeMarkdownFromUrlFragment } from '@ost-builder/shared';
 import {
   buildFragmentSourceKey,
+  buildSnapshotPayloadHash,
   findLocalSnapshotBySource,
   getActiveLocalSnapshotSourceKey,
   setActiveLocalSnapshotSourceKey,
@@ -77,8 +78,17 @@ function LibraryAutoSave() {
       if (supabaseConfigured && sessionRef.current && saved?.cloudTreeId) {
         const shareId = saved.cloudTreeId;
         const snapId = saved.id;
+        const payloadHash = buildSnapshotPayloadHash(payload);
+
+        // Skip if local state already matches the cloud's last-known hash —
+        // e.g. the change was applied by the poller, not the user.
+        const { cloudPayloadHash } = useOSTStore.getState();
+        if (cloudPayloadHash === payloadHash) return;
+
         if (cloudTimerRef.current) window.clearTimeout(cloudTimerRef.current);
         cloudTimerRef.current = window.setTimeout(() => {
+          const { beginCloudSync, finishCloudSync, failCloudSync } = useOSTStore.getState();
+          beginCloudSync();
           void updateTree(shareId, {
             markdown: payload.markdown,
             name: payload.name,
@@ -86,7 +96,11 @@ function LibraryAutoSave() {
             collapsedIds: payload.collapsedIds,
           }).then(() => {
             updateLocalSnapshot(snapId, { syncedAt: Date.now() });
-          }).catch(() => {});
+            finishCloudSync(payloadHash);
+          }).catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : 'Sync failed';
+            failCloudSync(msg);
+          });
         }, 4000);
       }
     }, 1000);
@@ -99,45 +113,68 @@ function LibraryAutoSave() {
   return null;
 }
 
+const TREE_POLL_INTERVAL_MS = 10_000;
+
+function computeLocalHash(state: ReturnType<typeof useOSTStore.getState>): string {
+  return buildSnapshotPayloadHash({
+    name: state.projectName,
+    markdown: state.markdown,
+    settings: {
+      layoutDirection: state.layoutDirection,
+      experimentLayout: state.experimentLayout,
+      viewDensity: state.viewDensity,
+    },
+    collapsedIds: state.collapsedCardIds,
+  });
+}
+
+function resolveActiveCloudTreeId(): string | null {
+  const sourceKey = getActiveLocalSnapshotSourceKey();
+  const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
+  let id = snap?.cloudTreeId ?? null;
+  if (!id && sourceKey?.startsWith('cloud:')) id = sourceKey.slice('cloud:'.length);
+  return id;
+}
+
 function ActiveCloudShareTracker() {
   const setActiveCloudContext = useOSTStore((state) => state.setActiveCloudContext);
   const setCommentCounts = useOSTStore((state) => state.setCommentCounts);
   const loadFromStoredShare = useOSTStore((state) => state.loadFromStoredShare);
-  const lastReconciledRef = useRef<string | null>(null);
+  const resetCloudSync = useOSTStore((state) => state.resetCloudSync);
 
   useEffect(() => {
     if (!supabaseConfigured) return;
 
-    const sourceKey = getActiveLocalSnapshotSourceKey();
-    const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
-    let cloudTreeId: string | null = snap?.cloudTreeId ?? null;
-    if (!cloudTreeId && sourceKey?.startsWith('cloud:')) {
-      cloudTreeId = sourceKey.slice('cloud:'.length);
-    }
-
-    if (!cloudTreeId) {
-      setActiveCloudContext(null, false);
-      setCommentCounts({});
-      lastReconciledRef.current = null;
-      return;
-    }
-
-    if (lastReconciledRef.current === cloudTreeId) return;
-
     let cancelled = false;
+    let currentTreeId: string | null = null;
 
-    void (async () => {
+    async function reconcile(isInitial: boolean) {
+      const cloudTreeId = resolveActiveCloudTreeId();
+      const treeSwitched = cloudTreeId !== currentTreeId;
+      currentTreeId = cloudTreeId;
+
+      if (!cloudTreeId) {
+        if (treeSwitched) {
+          setActiveCloudContext(null, false);
+          setCommentCounts({});
+          resetCloudSync(null);
+        }
+        return;
+      }
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session || cancelled) {
-          if (!cancelled) setActiveCloudContext(cloudTreeId, false);
+        if (cancelled || cloudTreeId !== currentTreeId) return;
+        if (!session) {
+          setActiveCloudContext(cloudTreeId, false);
           return;
         }
+
         const [payload, commentsRes] = await Promise.all([
-          getTree(cloudTreeId!).catch(() => null),
-          listTreeComments(cloudTreeId!).catch(() => ({ comments: [] })),
+          getTree(cloudTreeId).catch(() => null),
+          listTreeComments(cloudTreeId).catch(() => ({ comments: [] })),
         ]);
-        if (cancelled) return;
+        if (cancelled || cloudTreeId !== currentTreeId) return;
 
         const isOwner = payload?.role === 'owner';
         setActiveCloudContext(cloudTreeId, isOwner);
@@ -148,64 +185,76 @@ function ActiveCloudShareTracker() {
         }
         setCommentCounts(counts);
 
-        if (payload) {
-          lastReconciledRef.current = cloudTreeId;
-          if (payload.markdown !== useOSTStore.getState().markdown) {
-            loadFromStoredShare({
-              markdown: payload.markdown,
-              name: payload.name ?? undefined,
-              settings: payload.settings,
-              collapsedIds: payload.collapsedIds,
-            });
-            const liveSourceKey = getActiveLocalSnapshotSourceKey();
-            const liveSnap = liveSourceKey ? findLocalSnapshotBySource(liveSourceKey) : null;
-            if (liveSnap) {
-              updateLocalSnapshot(liveSnap.id, {
-                markdown: payload.markdown,
-                name: payload.name ?? liveSnap.name,
-                settings: payload.settings ?? liveSnap.settings,
-                collapsedIds: payload.collapsedIds ?? liveSnap.collapsedIds ?? [],
-                syncedAt: Date.now(),
-              });
-            }
-          }
+        if (!payload) return;
+
+        const state = useOSTStore.getState();
+        const localHash = computeLocalHash(state);
+
+        // Determine if it's safe to apply the cloud payload. The dirty-check
+        // is whether local diverges from the last cloud hash we know about.
+        const localIsDirty =
+          state.cloudPayloadHash !== null && localHash !== state.cloudPayloadHash;
+
+        // If the cloud hasn't changed since our last successful sync, do nothing.
+        // (Skip this short-circuit on initial mount — we may need to load it for the first time.)
+        const cloudPayload = {
+          name: payload.name ?? '',
+          markdown: payload.markdown,
+          settings: payload.settings,
+          collapsedIds: payload.collapsedIds ?? [],
+        };
+        const cloudHash = buildSnapshotPayloadHash(cloudPayload);
+        if (!isInitial && !treeSwitched && cloudHash === state.cloudPayloadHash) return;
+
+        if (!isInitial && !treeSwitched && localIsDirty) {
+          // Local has unpushed edits. Don't clobber — autosave will push, then
+          // the next poll will reconcile.
+          return;
+        }
+
+        if (localHash !== cloudHash || treeSwitched) {
+          loadFromStoredShare({
+            markdown: payload.markdown,
+            name: payload.name ?? undefined,
+            settings: payload.settings,
+            collapsedIds: payload.collapsedIds,
+          });
+        }
+
+        // Use the post-load store state as the canonical hash, so subsequent
+        // autosaves don't see a phantom diff caused by applyProjectNameToMarkdown.
+        const postState = useOSTStore.getState();
+        const postHash = computeLocalHash(postState);
+        resetCloudSync(postHash);
+
+        const liveSourceKey = getActiveLocalSnapshotSourceKey();
+        const liveSnap = liveSourceKey ? findLocalSnapshotBySource(liveSourceKey) : null;
+        if (liveSnap) {
+          updateLocalSnapshot(liveSnap.id, {
+            markdown: postState.markdown,
+            name: postState.projectName,
+            settings: payload.settings ?? liveSnap.settings,
+            collapsedIds: payload.collapsedIds ?? liveSnap.collapsedIds ?? [],
+            syncedAt: Date.now(),
+          });
         }
       } catch {
         // best-effort
       }
-    })();
+    }
 
-    return () => { cancelled = true; };
-  }, [setActiveCloudContext, setCommentCounts, loadFromStoredShare]);
+    void reconcile(true);
 
-  // Poll comment counts every 30s so card badges stay fresh
-  useEffect(() => {
-    if (!supabaseConfigured) return;
-
-    const interval = window.setInterval(async () => {
+    const interval = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      const sourceKey = getActiveLocalSnapshotSourceKey();
-      const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
-      let cloudTreeId: string | null = snap?.cloudTreeId ?? null;
-      if (!cloudTreeId && sourceKey?.startsWith('cloud:')) {
-        cloudTreeId = sourceKey.slice('cloud:'.length);
-      }
-      if (!cloudTreeId) return;
+      void reconcile(false);
+    }, TREE_POLL_INTERVAL_MS);
 
-      try {
-        const res = await listTreeComments(cloudTreeId);
-        const counts: Record<string, number> = {};
-        for (const c of res.comments) {
-          counts[c.cardId] = (counts[c.cardId] ?? 0) + 1;
-        }
-        setCommentCounts(counts);
-      } catch {
-        // best-effort
-      }
-    }, 30_000);
-
-    return () => window.clearInterval(interval);
-  }, [setCommentCounts]);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [setActiveCloudContext, setCommentCounts, loadFromStoredShare, resetCloudSync]);
 
   return null;
 }
