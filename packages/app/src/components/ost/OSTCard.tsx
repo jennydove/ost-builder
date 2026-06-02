@@ -96,6 +96,7 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
   const commentCount = useOSTStore((state) => state.commentCountsByCardId[card.id] ?? 0);
   const [editTitle, setEditTitle] = useState(card.title);
   const inputRef = useRef<HTMLInputElement>(null);
+  const preEditTitleRef = useRef<string>(card.title);
 
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: card.id,
@@ -107,9 +108,12 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
+      preEditTitleRef.current = card.title;
       inputRef.current.focus();
       inputRef.current.select();
     }
+    // intentionally omit card.title from deps — only snapshot on edit-mode entry
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing]);
 
   useEffect(() => {
@@ -248,12 +252,18 @@ export const OSTCard = memo(function OSTCard({ card, isDragging }: OSTCardProps)
             ref={inputRef}
             type="text"
             value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setEditTitle(next);
+              if (next.trim()) updateCard(card.id, { title: next });
+            }}
             onBlur={handleSaveTitle}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSaveTitle();
               if (e.key === 'Escape') {
-                setEditTitle(card.title);
+                const original = preEditTitleRef.current;
+                updateCard(card.id, { title: original });
+                setEditTitle(original);
                 setEditingCard(null);
               }
             }}
