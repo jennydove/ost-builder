@@ -65,6 +65,7 @@ const STATUS_MAP: Record<string, CardStatus> = {
 interface ParsedCard {
   id: string;
   explicitId: string | null;
+  explicitParentId: string | null;
   type: CardType;
   title: string;
   description?: string;
@@ -109,6 +110,16 @@ function parseCardHeading(
     remaining = remaining.replace(idMatch[0], '').trim();
   }
 
+  // Capture explicit parent reference if present (e.g. `{^abc12345}`).
+  // Used when heading-level inference can't represent the actual hierarchy —
+  // e.g. an opportunity nested under another opportunity (both at H3).
+  let explicitParentId: string | null = null;
+  const parentMatch = remaining.match(/\{\^([a-zA-Z0-9_-]+)\}/);
+  if (parentMatch) {
+    explicitParentId = parentMatch[1];
+    remaining = remaining.replace(parentMatch[0], '').trim();
+  }
+
   // Extract status if present
   let status: CardStatus = 'none';
   const statusMatch = remaining.match(/@(on-track|at-risk|achieved|exploring|validated|prioritized|deprioritized|ideating|testing|dropped|planned|running|complete|next|done|none)$/i);
@@ -122,6 +133,7 @@ function parseCardHeading(
   return {
     id: '',
     explicitId,
+    explicitParentId,
     type,
     title,
     status,
@@ -167,6 +179,19 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
     rootIds: [],
   };
 
+  // Pass 1: collect parsed-card data in source order, with inferred parent
+  // (from heading-level stack) and any explicit `{^parentId}` ref.
+  type Collected = {
+    id: string;
+    type: CardType;
+    title: string;
+    description?: string;
+    status: CardStatus;
+    metrics?: { start: number; current: number; target: number };
+    inferredParentId: string | null;
+    explicitParentId: string | null;
+  };
+  const collected: Collected[] = [];
   const parentStack: { id: string; level: number }[] = [];
   const seenIds = new Set<string>();
   let currentCard: ParsedCard | null = null;
@@ -183,7 +208,6 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
     const description = descriptionLines.join('\n').trim() || undefined;
     const metrics = currentCard.type === 'outcome' ? parseMetrics(metricsLines) : undefined;
 
-    // Find parent based on heading level
     while (
       parentStack.length > 0 &&
       parentStack[parentStack.length - 1].level >= currentCard.level
@@ -191,9 +215,8 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
       parentStack.pop();
     }
     const parentEntry = parentStack.length > 0 ? parentStack[parentStack.length - 1] : null;
-    const parentId = parentEntry ? parentEntry.id : null;
+    const inferredParentId = parentEntry ? parentEntry.id : null;
 
-    // Use explicit ID if present and unique; otherwise mint a fresh one.
     let id = currentCard.explicitId;
     if (!id || seenIds.has(id)) {
       do {
@@ -202,31 +225,18 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
     }
     seenIds.add(id);
 
-    const card: OSTCard = {
+    collected.push({
       id,
       type: currentCard.type,
       title: currentCard.title,
       description,
       status: currentCard.status,
-      parentId,
-      children: [],
       metrics,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    tree.cards[card.id] = card;
-
-    if (parentId && tree.cards[parentId]) {
-      tree.cards[parentId].children.push(card.id);
-    } else {
-      tree.rootIds.push(card.id);
-    }
-
-    parentStack.push({
-      id: card.id,
-      level: currentCard.level,
+      inferredParentId,
+      explicitParentId: currentCard.explicitParentId,
     });
+
+    parentStack.push({ id, level: currentCard.level });
     currentCard = null;
     contentLines = [];
   };
@@ -235,20 +245,51 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
     const heading = parseHeadingLine(line);
 
     if (heading) {
-      // H2-H5 are card headings
       const cardInfo = parseCardHeading(heading.content, heading.level);
       if (cardInfo) {
         finalizeCard();
         currentCard = { ...cardInfo, level: heading.level };
       }
     } else if (currentCard) {
-      // Non-heading lines are content for the current card
       contentLines.push(line);
     }
   }
-
-  // Finalize the last card
   finalizeCard();
+
+  // Pass 2: build the tree. Explicit `{^...}` ref wins when it points to a
+  // known card; otherwise fall back to heading-level inference (also covers
+  // forward refs to missing parents — better than orphaning the card).
+  const validIds = new Set(collected.map((c) => c.id));
+  for (const c of collected) {
+    const resolvedParent =
+      c.explicitParentId && validIds.has(c.explicitParentId)
+        ? c.explicitParentId
+        : c.inferredParentId;
+
+    const card: OSTCard = {
+      id: c.id,
+      type: c.type,
+      title: c.title,
+      description: c.description,
+      status: c.status,
+      parentId: resolvedParent,
+      children: [],
+      metrics: c.metrics,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    tree.cards[c.id] = card;
+  }
+
+  for (const c of collected) {
+    const card = tree.cards[c.id];
+    if (card.parentId && tree.cards[card.parentId]) {
+      tree.cards[card.parentId].children.push(card.id);
+    } else {
+      card.parentId = null;
+      tree.rootIds.push(card.id);
+    }
+  }
 
   return tree;
 }
@@ -260,15 +301,32 @@ export function serializeTreeToMarkdown(tree: OSTTree, name?: string): string {
     lines.push('');
   }
 
+  // Mirror the parser's heading-level inference so we can detect when the
+  // tree's actual parent link wouldn't survive a round-trip via heading
+  // levels alone. In those cases — typically same-type nesting like an
+  // opportunity under another opportunity — emit an explicit `{^parentId}`.
+  const inferenceStack: { id: string; level: number }[] = [];
+
   const serializeCard = (cardId: string) => {
     const card = tree.cards[cardId];
     if (!card) return;
 
     const level = HEADING_LEVELS[card.type];
+    while (
+      inferenceStack.length > 0 &&
+      inferenceStack[inferenceStack.length - 1].level >= level
+    ) {
+      inferenceStack.pop();
+    }
+    const inferredParentId =
+      inferenceStack.length > 0 ? inferenceStack[inferenceStack.length - 1].id : null;
+
     const prefix = TYPE_PREFIXES[card.type];
     const idSuffix = card.id ? ` {#${card.id}}` : '';
+    const parentSuffix =
+      card.parentId && card.parentId !== inferredParentId ? ` {^${card.parentId}}` : '';
     const statusSuffix = card.status && card.status !== 'none' ? ` @${card.status}` : '';
-    const heading = `${'#'.repeat(level)} ${prefix} ${card.title}${idSuffix}${statusSuffix}`;
+    const heading = `${'#'.repeat(level)} ${prefix} ${card.title}${idSuffix}${parentSuffix}${statusSuffix}`;
 
     lines.push(heading);
 
@@ -284,7 +342,8 @@ export function serializeTreeToMarkdown(tree: OSTTree, name?: string): string {
 
     lines.push('');
 
-    // Serialize children
+    inferenceStack.push({ id: card.id, level });
+
     for (const childId of card.children) {
       serializeCard(childId);
     }
