@@ -58,6 +58,40 @@ export async function resolveAuthUser(
   return { userId: user.id, userName: name };
 }
 
+// Lazy domain-based provisioning: when a user signs into a domain-restricted
+// share but has no org_members row yet, check whether their email domain
+// matches the org's allowed_email_domains and create the row on the fly.
+// Returns true if the user is now an org member (newly added or already a
+// member via concurrent insert).
+async function tryAutoJoinOrgByDomain(
+  supabase: ReturnType<typeof getSupabaseAsService>,
+  orgId: string,
+  userId: string,
+  userEmail: string,
+): Promise<boolean> {
+  const at = userEmail.indexOf('@');
+  if (at === -1) return false;
+  const domain = userEmail.slice(at + 1).toLowerCase();
+  if (!domain) return false;
+
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('allowed_email_domains')
+    .eq('id', orgId)
+    .single();
+
+  const allowed = ((org?.allowed_email_domains as string[] | undefined) ?? [])
+    .map(d => d.toLowerCase());
+  if (!allowed.includes(domain)) return false;
+
+  const { error } = await supabase
+    .from('org_members')
+    .insert({ org_id: orgId, user_id: userId, role: 'member' });
+  // 23505 = unique_violation: another concurrent request already inserted.
+  if (error && error.code !== '23505') return false;
+  return true;
+}
+
 async function claimPendingInvite(
   supabase: ReturnType<typeof getSupabaseAsService>,
   treeId: string,
@@ -133,6 +167,16 @@ export async function resolveRole(
       .eq('user_id', userId)
       .single();
     if (orgMember) return 'viewer';
+
+    if (userEmail) {
+      const joined = await tryAutoJoinOrgByDomain(
+        supabase,
+        share.org_id as string,
+        userId,
+        userEmail,
+      );
+      if (joined) return 'viewer';
+    }
   }
 
   return null;

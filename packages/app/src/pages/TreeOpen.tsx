@@ -9,6 +9,7 @@ import { useOSTStore } from '@/store/ostStore';
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'auth-required' }
+  | { kind: 'forbidden' }
   | { kind: 'unavailable'; reason: string }
   | { kind: 'error'; message: string };
 
@@ -46,7 +47,11 @@ export default function StoredShareOpen() {
           status?: number;
           payload?: { reason?: string; login?: { github?: string } };
         };
-        if (err.status === 401 || err.status === 403) {
+        if (err.status === 403 || (err.status === 401 && err.payload?.reason === 'forbidden')) {
+          setState({ kind: 'forbidden' });
+          return;
+        }
+        if (err.status === 401) {
           setState({ kind: 'auth-required' });
           return;
         }
@@ -66,6 +71,7 @@ export default function StoredShareOpen() {
 
   const title = useMemo(() => {
     if (state.kind === 'auth-required') return 'Private Share';
+    if (state.kind === 'forbidden') return 'Access Denied';
     if (state.kind === 'unavailable') return 'Link Unavailable';
     if (state.kind === 'error') return 'Could Not Load Share';
     return 'Loading Share';
@@ -84,6 +90,18 @@ export default function StoredShareOpen() {
               Sign in to view this share.
             </p>
             <SignInButtons redirectTo={`${window.location.origin}/s/${id}`} />
+          </>
+        )}
+        {state.kind === 'forbidden' && (
+          <>
+            <p className="text-sm text-muted-foreground">
+              You're signed in, but this share isn't available to your account. Ask the
+              owner to share it with you directly, or check that you signed in with the
+              right email.
+            </p>
+            <Button variant="outline" onClick={() => navigate('/', { replace: true })}>
+              Go to builder
+            </Button>
           </>
         )}
         {state.kind === 'unavailable' && (
