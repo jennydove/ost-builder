@@ -1,5 +1,6 @@
 import { TreeDeciduous } from 'lucide-react';
 import { ProjectName } from './header/ProjectName';
+import { SaveStatusIndicator } from './header/SaveStatusIndicator';
 import { MarkdownEditorAction } from './header/actions/MarkdownEditorAction';
 import { UploadAction } from './header/actions/UploadAction';
 import { LibraryAction } from './header/actions/LibraryAction';
@@ -17,6 +18,7 @@ export function Header() {
           <TreeDeciduous className="w-5 h-5 text-primary-foreground" />
         </div>
         <ProjectName />
+        <SaveStatusIndicator />
       </div>
 
       <div className="flex items-center gap-2">
