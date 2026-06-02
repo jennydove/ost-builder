@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SignInButtons } from '@/components/auth/SignInButtons';
+import { OSTBuilder } from '@/components/ost/OSTBuilder';
 import { getTree } from '@/lib/treeApi';
 import { setActiveLocalSnapshotSourceKey, upsertShareSnapshot } from '@/lib/localSnapshots';
 import { useOSTStore } from '@/store/ostStore';
 
 type LoadState =
   | { kind: 'loading' }
+  | { kind: 'ready' }
   | { kind: 'auth-required' }
   | { kind: 'forbidden' }
   | { kind: 'unavailable'; reason: string }
@@ -40,7 +42,7 @@ export default function StoredShareOpen() {
           settings: payload.settings,
           collapsedIds: payload.collapsedIds,
         });
-        navigate('/', { replace: true });
+        setState({ kind: 'ready' });
       } catch (error) {
         if (!active) return;
         const err = error as Error & {
@@ -67,7 +69,7 @@ export default function StoredShareOpen() {
     return () => {
       active = false;
     };
-  }, [id, loadFromStoredShare, navigate]);
+  }, [id, loadFromStoredShare]);
 
   const title = useMemo(() => {
     if (state.kind === 'auth-required') return 'Private Share';
@@ -76,6 +78,10 @@ export default function StoredShareOpen() {
     if (state.kind === 'error') return 'Could Not Load Share';
     return 'Loading Share';
   }, [state.kind]);
+
+  if (state.kind === 'ready') {
+    return <OSTBuilder />;
+  }
 
   return (
     <div className="h-screen w-screen bg-background flex items-center justify-center p-4">

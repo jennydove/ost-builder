@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Link2, Share2, UserPlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   findLocalSnapshotBySource,
   getActiveLocalSnapshotSourceKey,
+  setActiveLocalSnapshotSourceKey,
   updateLocalSnapshot,
+  upsertShareSnapshot,
 } from '@/lib/localSnapshots';
 
 function resolveCloudId(sourceKey: string | null, linkedCloudId?: string): string | null {
@@ -56,6 +59,7 @@ function initials(name: string | null, email: string): string {
 
 export function ShareAction() {
   const { getSharePayload } = useOSTStore();
+  const navigate = useNavigate();
   const [loggedIn, setLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -126,6 +130,20 @@ export function ShareAction() {
       if (snapshot) {
         updateLocalSnapshot(snapshot.id, { cloudTreeId: result.id, syncedAt: Date.now() });
       }
+
+      // Establish the cloud snapshot so subsequent /s/:id mount finds it.
+      upsertShareSnapshot(`cloud:${result.id}`, 'share-cloud', {
+        name: payload.name,
+        markdown: payload.markdown,
+        settings: payload.settings,
+        collapsedIds: payload.collapsedIds,
+      });
+      const cloudSnap = findLocalSnapshotBySource(`cloud:${result.id}`);
+      if (cloudSnap && !cloudSnap.cloudTreeId) {
+        updateLocalSnapshot(cloudSnap.id, { cloudTreeId: result.id, syncedAt: Date.now() });
+      }
+      setActiveLocalSnapshotSourceKey(`cloud:${result.id}`);
+      navigate(`/s/${result.id}`, { replace: true });
 
       const { members: m } = await listTreeMembers(result.id);
       setMembers(m);

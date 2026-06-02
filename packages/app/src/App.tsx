@@ -1,7 +1,7 @@
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useMatch } from 'react-router-dom';
 import { useEffect, useRef, lazy, Suspense } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useOSTStore } from '@/store/ostStore';
@@ -35,6 +35,8 @@ function LibraryAutoSave() {
   const experimentLayout = useOSTStore((state) => state.experimentLayout);
   const viewDensity = useOSTStore((state) => state.viewDensity);
   const collapsedCardIds = useOSTStore((state) => state.collapsedCardIds);
+  const cloudShareMatch = useMatch('/s/:id');
+  const urlCloudTreeId = cloudShareMatch?.params.id ?? null;
   const localTimerRef = useRef<number | null>(null);
   const cloudTimerRef = useRef<number | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -62,16 +64,25 @@ function LibraryAutoSave() {
 
     // Fast local save (1s debounce)
     localTimerRef.current = window.setTimeout(() => {
-      const activeSourceKey = getActiveLocalSnapshotSourceKey();
       let saved = null;
-      if (activeSourceKey) {
-        const existing = findLocalSnapshotBySource(activeSourceKey);
-        if (existing?.sourceType) {
-          saved = upsertLocalSnapshotBySource(activeSourceKey, existing.sourceType, payload);
+      if (urlCloudTreeId) {
+        // URL is on /s/:id — autosave keys directly on the cloud snapshot.
+        const cloudSourceKey = `cloud:${urlCloudTreeId}`;
+        saved = upsertLocalSnapshotBySource(cloudSourceKey, 'share-cloud', payload);
+        if (!saved.cloudTreeId) {
+          saved = updateLocalSnapshot(saved.id, { cloudTreeId: urlCloudTreeId }) ?? saved;
         }
-      }
-      if (!saved) {
-        saved = upsertDraftSnapshot(payload);
+      } else {
+        const activeSourceKey = getActiveLocalSnapshotSourceKey();
+        if (activeSourceKey) {
+          const existing = findLocalSnapshotBySource(activeSourceKey);
+          if (existing?.sourceType) {
+            saved = upsertLocalSnapshotBySource(activeSourceKey, existing.sourceType, payload);
+          }
+        }
+        if (!saved) {
+          saved = upsertDraftSnapshot(payload);
+        }
       }
 
       // Throttled cloud sync (5s debounce, separate timer)
@@ -108,7 +119,7 @@ function LibraryAutoSave() {
     return () => {
       if (localTimerRef.current) window.clearTimeout(localTimerRef.current);
     };
-  }, [markdown, projectName, layoutDirection, experimentLayout, viewDensity, collapsedCardIds]);
+  }, [markdown, projectName, layoutDirection, experimentLayout, viewDensity, collapsedCardIds, urlCloudTreeId]);
 
   return null;
 }
@@ -128,7 +139,7 @@ function computeLocalHash(state: ReturnType<typeof useOSTStore.getState>): strin
   });
 }
 
-function resolveActiveCloudTreeId(): string | null {
+function resolveActiveCloudTreeIdFromStorage(): string | null {
   const sourceKey = getActiveLocalSnapshotSourceKey();
   const snap = sourceKey ? findLocalSnapshotBySource(sourceKey) : null;
   let id = snap?.cloudTreeId ?? null;
@@ -141,6 +152,8 @@ function ActiveCloudShareTracker() {
   const setCommentCounts = useOSTStore((state) => state.setCommentCounts);
   const loadFromStoredShare = useOSTStore((state) => state.loadFromStoredShare);
   const resetCloudSync = useOSTStore((state) => state.resetCloudSync);
+  const cloudShareMatch = useMatch('/s/:id');
+  const urlCloudTreeId = cloudShareMatch?.params.id ?? null;
 
   useEffect(() => {
     if (!supabaseConfigured) return;
@@ -149,7 +162,9 @@ function ActiveCloudShareTracker() {
     let currentTreeId: string | null = null;
 
     async function reconcile(isInitial: boolean) {
-      const cloudTreeId = resolveActiveCloudTreeId();
+      // URL is the source of truth when on /s/:id. Otherwise fall back to
+      // activeSourceKey (e.g. a draft that has been synced to cloud).
+      const cloudTreeId = urlCloudTreeId ?? resolveActiveCloudTreeIdFromStorage();
       const treeSwitched = cloudTreeId !== currentTreeId;
       currentTreeId = cloudTreeId;
 
@@ -254,7 +269,7 @@ function ActiveCloudShareTracker() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [setActiveCloudContext, setCommentCounts, loadFromStoredShare, resetCloudSync]);
+  }, [setActiveCloudContext, setCommentCounts, loadFromStoredShare, resetCloudSync, urlCloudTreeId]);
 
   return null;
 }

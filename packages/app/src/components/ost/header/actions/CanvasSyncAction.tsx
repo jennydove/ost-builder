@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +13,9 @@ import {
   findLocalSnapshotBySource,
   getActiveLocalSnapshotSourceKey,
   type LocalSnapshot,
+  setActiveLocalSnapshotSourceKey,
   updateLocalSnapshot,
+  upsertShareSnapshot,
 } from '@/lib/localSnapshots';
 import { useOSTStore } from '@/store/ostStore';
 import { toast } from '@/components/ui/use-toast';
@@ -57,6 +60,7 @@ function getSyncVisualState(
 
 export function CanvasSyncAction() {
   const { getSharePayload } = useOSTStore();
+  const navigate = useNavigate();
   const markdown = useOSTStore((state) => state.markdown);
   const projectName = useOSTStore((state) => state.projectName);
   const collapsedCount = useOSTStore((state) => state.collapsedCardIds.length);
@@ -176,6 +180,14 @@ export function CanvasSyncAction() {
       if (snapshot) {
         updateLocalSnapshot(snapshot.id, { cloudTreeId: created.id, syncedAt: Date.now() });
       }
+
+      upsertShareSnapshot(`cloud:${created.id}`, 'share-cloud', payload);
+      const cloudSnap = findLocalSnapshotBySource(`cloud:${created.id}`);
+      if (cloudSnap && !cloudSnap.cloudTreeId) {
+        updateLocalSnapshot(cloudSnap.id, { cloudTreeId: created.id, syncedAt: Date.now() });
+      }
+      setActiveLocalSnapshotSourceKey(`cloud:${created.id}`);
+      navigate(`/s/${created.id}`, { replace: true });
 
       toast({ title: 'Synced', description: 'Cloud copy created.' });
     } catch (error) {
