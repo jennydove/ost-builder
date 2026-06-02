@@ -369,6 +369,20 @@ describe('share-store-item', () => {
       });
       const res = await handler(makeRequest('GET', 'http://localhost/api/trees/s1'));
       expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.reason).toBe('auth_required');
+    });
+
+    it('returns 403 with reason=forbidden when signed in but lacks access', async () => {
+      mockSb = createMockSupabase({
+        user: USER,
+        share: { id: 's1', visibility: 'restricted', owner_id: 'owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        memberRole: null,
+      });
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees/s1', undefined, VALID_TOKEN));
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.reason).toBe('forbidden');
     });
   });
 

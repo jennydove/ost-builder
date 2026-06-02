@@ -52,7 +52,12 @@ export default async (request: Request) => {
   const role = await resolveRole(supabase, id, userId, share as Record<string, unknown>, userEmail);
 
   if (request.method === 'GET') {
-    if (!role) return Response.json({ error: 'Sign in to view this share', reason: 'auth_required' }, { status: 401 });
+    if (!role) {
+      if (!userId) {
+        return Response.json({ error: 'Sign in to view this share', reason: 'auth_required' }, { status: 401 });
+      }
+      return Response.json({ error: 'You do not have access to this share', reason: 'forbidden' }, { status: 403 });
+    }
 
     // Per-IP read throttle for anonymous; per-user for authenticated.
     const rateKey = userId

@@ -204,6 +204,129 @@ describe('resolveRole', () => {
     });
   });
 
+  // --- domain auto-join ---
+
+  describe('domain auto-join', () => {
+    function mockSupabaseWithAutoJoin(opts: {
+      allowedDomains: string[];
+      insertError?: { code: string } | null;
+    }) {
+      const insert = vi.fn().mockResolvedValue({ error: opts.insertError ?? null });
+      const from = vi.fn().mockImplementation((table: string) => {
+        if (table === 'org_members') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
+                }),
+              }),
+            }),
+            insert,
+          };
+        }
+        if (table === 'organizations') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { allowed_email_domains: opts.allowedDomains },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        // tree_members lookup (and any other table) returns empty
+        const builder: Record<string, any> = {};
+        for (const m of ['eq', 'ilike', 'is']) builder[m] = vi.fn().mockReturnValue(builder);
+        builder.single = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } });
+        return { select: vi.fn().mockReturnValue(builder) };
+      });
+      return { from, insert };
+    }
+
+    it('auto-joins user whose email domain matches allowed_email_domains', async () => {
+      const sb = mockSupabaseWithAutoJoin({ allowedDomains: ['mozilla.com'] });
+      const result = await resolveRole(
+        sb as any,
+        'share-1',
+        'user-a',
+        share('domain-restricted', 'owner-id', 'org-1'),
+        'newuser@mozilla.com',
+      );
+      expect(result).toBe('viewer');
+      expect(sb.insert).toHaveBeenCalledWith({ org_id: 'org-1', user_id: 'user-a', role: 'member' });
+    });
+
+    it('does not auto-join when email domain does not match', async () => {
+      const sb = mockSupabaseWithAutoJoin({ allowedDomains: ['mozilla.com'] });
+      const result = await resolveRole(
+        sb as any,
+        'share-1',
+        'user-a',
+        share('domain-restricted', 'owner-id', 'org-1'),
+        'someone@gmail.com',
+      );
+      expect(result).toBeNull();
+      expect(sb.insert).not.toHaveBeenCalled();
+    });
+
+    it('does not auto-join without userEmail', async () => {
+      const sb = mockSupabaseWithAutoJoin({ allowedDomains: ['mozilla.com'] });
+      const result = await resolveRole(
+        sb as any,
+        'share-1',
+        'user-a',
+        share('domain-restricted', 'owner-id', 'org-1'),
+      );
+      expect(result).toBeNull();
+      expect(sb.insert).not.toHaveBeenCalled();
+    });
+
+    it('treats domain match as case-insensitive', async () => {
+      const sb = mockSupabaseWithAutoJoin({ allowedDomains: ['Mozilla.COM'] });
+      const result = await resolveRole(
+        sb as any,
+        'share-1',
+        'user-a',
+        share('domain-restricted', 'owner-id', 'org-1'),
+        'NewUser@mozilla.com',
+      );
+      expect(result).toBe('viewer');
+    });
+
+    it('treats unique-violation as success (concurrent insert race)', async () => {
+      const sb = mockSupabaseWithAutoJoin({
+        allowedDomains: ['mozilla.com'],
+        insertError: { code: '23505' },
+      });
+      const result = await resolveRole(
+        sb as any,
+        'share-1',
+        'user-a',
+        share('domain-restricted', 'owner-id', 'org-1'),
+        'newuser@mozilla.com',
+      );
+      expect(result).toBe('viewer');
+    });
+
+    it('returns null when insert fails for non-race reason', async () => {
+      const sb = mockSupabaseWithAutoJoin({
+        allowedDomains: ['mozilla.com'],
+        insertError: { code: '42501' },
+      });
+      const result = await resolveRole(
+        sb as any,
+        'share-1',
+        'user-a',
+        share('domain-restricted', 'owner-id', 'org-1'),
+        'newuser@mozilla.com',
+      );
+      expect(result).toBeNull();
+    });
+  });
+
   // --- pending invite claiming ---
 
   describe('pending invite claiming', () => {
