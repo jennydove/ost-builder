@@ -227,6 +227,12 @@ function ActiveCloudShareTracker() {
           return;
         }
 
+        if (!isInitial && !treeSwitched && state.editingCardId !== null) {
+          // User has an inline card title editor open. loadFromStoredShare
+          // resets editingCardId, which would unmount the input mid-edit.
+          return;
+        }
+
         if (localHash !== cloudHash || treeSwitched) {
           loadFromStoredShare({
             markdown: payload.markdown,

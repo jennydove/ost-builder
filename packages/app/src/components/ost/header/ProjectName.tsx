@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PenLine } from 'lucide-react';
 import { useOSTStore } from '@/store/ostStore';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,14 @@ export function ProjectName() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(projectName);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const preEditNameRef = useRef<string>(projectName);
+
+  useEffect(() => {
+    if (!isEditingName) setNameDraft(projectName);
+  }, [projectName, isEditingName]);
 
   const handleStartNameEdit = () => {
+    preEditNameRef.current = projectName;
     setNameDraft(projectName);
     setIsEditingName(true);
     requestAnimationFrame(() => {
@@ -30,8 +36,10 @@ export function ProjectName() {
     }
     if (event.key === 'Escape') {
       event.preventDefault();
+      const original = preEditNameRef.current;
+      setProjectName(original);
+      setNameDraft(original);
       setIsEditingName(false);
-      setNameDraft(projectName);
     }
   };
 
@@ -43,7 +51,11 @@ export function ProjectName() {
           <Input
             ref={nameInputRef}
             value={nameDraft}
-            onChange={(event) => setNameDraft(event.target.value)}
+            onChange={(event) => {
+              const next = event.target.value;
+              setNameDraft(next);
+              if (next.trim()) setProjectName(next);
+            }}
             onBlur={handleSaveName}
             onKeyDown={handleNameKeyDown}
             data-testid="project-name-input"
