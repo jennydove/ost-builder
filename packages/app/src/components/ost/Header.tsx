@@ -1,4 +1,3 @@
-import { TreeDeciduous } from 'lucide-react';
 import { ProjectName } from './header/ProjectName';
 import { MarkdownEditorAction } from './header/actions/MarkdownEditorAction';
 import { UploadAction } from './header/actions/UploadAction';
@@ -13,9 +12,11 @@ export function Header() {
   return (
     <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 shrink-0">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-          <TreeDeciduous className="w-5 h-5 text-primary-foreground" />
-        </div>
+        <img
+          src="/apple-touch-icon.png"
+          alt="OST Builder"
+          className="w-9 h-9 rounded-lg"
+        />
         <ProjectName />
       </div>
 
