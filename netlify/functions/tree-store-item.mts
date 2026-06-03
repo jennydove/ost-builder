@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, getSupabaseAsUser, resolveRole, type TreeRole } from './_shareUtils.mts';
+import { getSupabaseAsService, getSupabaseAsUser, resolveAuthUser, resolveRole, type TreeRole } from './_shareUtils.mts';
 import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -28,13 +28,13 @@ export default async (request: Request) => {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
   const supabase = getSupabaseAsService();
 
-  // Resolve user from token (optional for GET)
+  // Resolve user from token (optional for GET). Accepts Supabase JWTs and PATs.
   let userId: string | null = null;
   let userEmail: string | null = null;
   if (token) {
-    const { data: { user } } = await supabase.auth.getUser(token);
-    userId = user?.id ?? null;
-    userEmail = user?.email ?? null;
+    const auth = await resolveAuthUser(supabase, token);
+    userId = auth?.userId ?? null;
+    userEmail = auth?.userEmail ?? null;
   }
 
   // Fetch share

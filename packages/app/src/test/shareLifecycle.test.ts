@@ -28,6 +28,9 @@ interface MockSupabaseConfig {
   insertedComment?: MockRow | null;
   existingComment?: MockRow | null;
   ownerUser?: { email?: string } | null;
+  // If set, from('cli_tokens').select(...).eq(...).single() resolves to a row
+  // pointing at this user id (with no expiry). Used to simulate PAT auth.
+  patUserId?: string | null;
 }
 
 function createMockSupabase(config: MockSupabaseConfig = {}) {
@@ -44,6 +47,7 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
     insertedComment = null,
     existingComment = null,
     ownerUser = null,
+    patUserId = null,
   } = config;
 
   const mock: any = {
@@ -129,6 +133,25 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
               ? { error: insertMemberError }
               : { error: null },
           ),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        };
+      }
+
+      if (table === 'cli_tokens') {
+        const tokenBuilder: Record<string, any> = {};
+        const tokenSingle = vi.fn().mockResolvedValue(
+          patUserId
+            ? { data: { id: 'token-1', user_id: patUserId, expires_at: null }, error: null }
+            : { data: null, error: { code: 'PGRST116' } },
+        );
+        for (const m of ['eq']) {
+          tokenBuilder[m] = vi.fn().mockReturnValue(tokenBuilder);
+        }
+        tokenBuilder.single = tokenSingle;
+        return {
+          select: vi.fn().mockReturnValue(tokenBuilder),
           update: vi.fn().mockReturnValue({
             eq: vi.fn().mockResolvedValue({ error: null }),
           }),
@@ -320,6 +343,37 @@ describe('share-store', () => {
       const res = await handler(makeRequest('GET', 'http://localhost/api/trees'));
       expect(res.status).toBe(401);
     });
+
+    it('accepts ost_pat_ tokens and lists owned trees', async () => {
+      mockSb = createMockSupabase({
+        patUserId: 'pat-owner-1',
+        ownerUser: { email: 'pat@example.com' },
+        shares: [
+          { id: 's-pat', name: 'PAT Share', visibility: 'link-public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        ],
+      });
+      const res = await handler(makeRequest(
+        'GET',
+        'http://localhost/api/trees',
+        undefined,
+        'ost_pat_deadbeef',
+      ));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.items).toHaveLength(1);
+      expect(json.items[0].id).toBe('s-pat');
+    });
+
+    it('returns 401 for unknown ost_pat_ token', async () => {
+      mockSb = createMockSupabase({ patUserId: null });
+      const res = await handler(makeRequest(
+        'GET',
+        'http://localhost/api/trees',
+        undefined,
+        'ost_pat_unknown',
+      ));
+      expect(res.status).toBe(401);
+    });
   });
 });
 
@@ -371,6 +425,19 @@ describe('share-store-item', () => {
       expect(res.status).toBe(401);
       const json = await res.json();
       expect(json.reason).toBe('auth_required');
+    });
+
+    it('accepts ost_pat_ tokens and resolves owner role', async () => {
+      mockSb = createMockSupabase({
+        patUserId: 'pat-owner-1',
+        ownerUser: { email: 'pat@example.com' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'pat-owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+      });
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees/s1', undefined, 'ost_pat_deadbeef'));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.role).toBe('owner');
+      expect(json.markdown).toBe('# Test');
     });
 
     it('returns 403 with reason=forbidden when signed in but lacks access', async () => {

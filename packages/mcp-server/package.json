@@ -1,0 +1,55 @@
+{
+  "name": "ost-builder-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for OST Builder — read-only access to your Opportunity Solution Trees from any MCP client.",
+  "type": "module",
+  "bin": {
+    "ost-builder-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepack": "npm run build && npm run prepublishOnly",
+    "prepublishOnly": "cp ../../README.md ./README.md || true",
+    "release": "npm run prepack && npx np --branch main"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@ost-builder/shared": "^0.4.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "author": "Jenny Wanger",
+  "keywords": [
+    "ost",
+    "opportunity-solution-tree",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "product-management",
+    "discovery"
+  ],
+  "license": "MIT",
+  "homepage": "https://ost-builder.trinixlabs.dev/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jennydove/ost-builder.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jennydove/ost-builder/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

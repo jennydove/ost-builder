@@ -39,7 +39,7 @@ export function getSupabaseAsUser(jwt: string) {
 export async function resolveAuthUser(
   supabase: ReturnType<typeof getSupabaseAsService>,
   token: string | null,
-): Promise<{ userId: string; userName: string | null } | null> {
+): Promise<{ userId: string; userName: string | null; userEmail: string | null } | null> {
   if (!token) return null;
 
   if (token.startsWith('ost_pat_')) {
@@ -47,15 +47,17 @@ export async function resolveAuthUser(
     if (!pat) return null;
     const { data } = await supabase.auth.admin.getUserById(pat.userId);
     const meta = (data?.user?.user_metadata ?? {}) as Record<string, unknown>;
-    const name = (meta.full_name as string) || (meta.name as string) || data?.user?.email || null;
-    return { userId: pat.userId, userName: name };
+    const email = data?.user?.email ?? null;
+    const name = (meta.full_name as string) || (meta.name as string) || email || null;
+    return { userId: pat.userId, userName: name, userEmail: email };
   }
 
   const { data: { user } } = await supabase.auth.getUser(token);
   if (!user) return null;
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const name = (meta.full_name as string) || (meta.name as string) || user.email || null;
-  return { userId: user.id, userName: name };
+  const email = user.email ?? null;
+  const name = (meta.full_name as string) || (meta.name as string) || email || null;
+  return { userId: user.id, userName: name, userEmail: email };
 }
 
 // Lazy domain-based provisioning: when a user signs into a domain-restricted
