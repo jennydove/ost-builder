@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, getSupabaseAsUser, resolveRole, type TreeRole } from './_shareUtils.mts';
+import { getSupabaseAsService, getSupabaseAsUser, resolveAuthUser, resolveRole, type TreeRole } from './_shareUtils.mts';
 import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -28,13 +28,13 @@ export default async (request: Request) => {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '');
   const supabase = getSupabaseAsService();
 
-  // Resolve user from token (optional for GET)
+  // Resolve user from token (optional for GET). Accepts Supabase JWTs and PATs.
   let userId: string | null = null;
   let userEmail: string | null = null;
   if (token) {
-    const { data: { user } } = await supabase.auth.getUser(token);
-    userId = user?.id ?? null;
-    userEmail = user?.email ?? null;
+    const auth = await resolveAuthUser(supabase, token);
+    userId = auth?.userId ?? null;
+    userEmail = auth?.userEmail ?? null;
   }
 
   // Fetch share
@@ -71,6 +71,11 @@ export default async (request: Request) => {
 
   // All write operations require auth and at least editor role
   if (!userId) return Response.json({ error: 'Authentication required' }, { status: 401 });
+  // PATs are read-only. resolveAuthUser accepts them upstream so GET works,
+  // but write paths below need a real Supabase JWT to drive RLS via getSupabaseAsUser.
+  if (token?.startsWith('ost_pat_')) {
+    return Response.json({ error: 'PATs are read-only; sign in to make changes' }, { status: 403 });
+  }
   if (!role || role === 'viewer') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   if (request.method === 'PATCH') {

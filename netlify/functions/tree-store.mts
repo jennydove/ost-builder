@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, getSupabaseAsUser } from './_shareUtils.mts';
+import { getSupabaseAsService, getSupabaseAsUser, resolveAuthUser } from './_shareUtils.mts';
 import { CreateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -13,11 +13,11 @@ export default async (request: Request) => {
 
   if (request.method === 'GET') {
     if (!token) return Response.json({ error: 'Authentication required' }, { status: 401 });
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) return Response.json({ error: 'Invalid token' }, { status: 401 });
+    const auth = await resolveAuthUser(supabase, token);
+    if (!auth) return Response.json({ error: 'Invalid token' }, { status: 401 });
 
     const rl = await checkRateLimit(supabase, {
-      key: `share:list:${user.id}`,
+      key: `share:list:${auth.userId}`,
       limit: 300,
       windowSeconds: 60,
     });
@@ -28,11 +28,12 @@ export default async (request: Request) => {
     const pageSize = Math.min(100, Number(url.searchParams.get('pageSize') || '50'));
     const from = (page - 1) * pageSize;
 
-    const userSupabase = getSupabaseAsUser(token);
-    const { data: rows, error: listError } = await userSupabase
+    // Service-role query filtered by owner_id — auth is already validated above,
+    // and PATs can't act as user-context (not a Supabase JWT).
+    const { data: rows, error: listError } = await supabase
       .from('trees')
       .select('id, name, visibility, created_at, updated_at')
-      .eq('owner_id', user.id)
+      .eq('owner_id', auth.userId)
       .order('updated_at', { ascending: false })
       .range(from, from + pageSize - 1);
 
