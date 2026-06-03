@@ -71,6 +71,11 @@ export default async (request: Request) => {
 
   // All write operations require auth and at least editor role
   if (!userId) return Response.json({ error: 'Authentication required' }, { status: 401 });
+  // PATs are read-only. resolveAuthUser accepts them upstream so GET works,
+  // but write paths below need a real Supabase JWT to drive RLS via getSupabaseAsUser.
+  if (token?.startsWith('ost_pat_')) {
+    return Response.json({ error: 'PATs are read-only; sign in to make changes' }, { status: 403 });
+  }
   if (!role || role === 'viewer') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
   if (request.method === 'PATCH') {

@@ -14,6 +14,19 @@ export class ApiError extends Error {
   }
 }
 
+export function reauthMessage(): string {
+  return (
+    'Authentication failed. Your PAT may be revoked or expired — generate a new ' +
+    'one at https://mozost.netlify.app under Account → API tokens.'
+  );
+}
+
+export function toolErrorContent(e: unknown): { content: { type: 'text'; text: string }[]; isError: true } {
+  const status = e instanceof ApiError ? e.status : undefined;
+  const message = status === 401 ? reauthMessage() : e instanceof Error ? e.message : String(e);
+  return { content: [{ type: 'text', text: message }], isError: true };
+}
+
 export async function apiFetch<T>(
   fetchImpl: FetchLike,
   token: string,

@@ -43,6 +43,7 @@ describe('list_trees', () => {
     const body = JSON.parse(result.content[0].text);
     expect(body.items).toHaveLength(1);
     expect(body.items[0].url).toBe('https://api.example.com/s/s1');
+    expect(body.items[0].link).toBeUndefined();
   });
 
   it('returns isError on 401', async () => {

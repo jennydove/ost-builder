@@ -513,6 +513,23 @@ describe('share-store-item', () => {
       ));
       expect(res.status).toBe(401);
     });
+
+    it('returns 403 when authenticating with a PAT (PATs are read-only)', async () => {
+      mockSb = createMockSupabase({
+        patUserId: 'pat-owner-1',
+        ownerUser: { email: 'pat@example.com' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'pat-owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+      });
+      const res = await handler(makeRequest(
+        'PATCH',
+        'http://localhost/api/trees/s1',
+        { markdown: '# Hack via PAT' },
+        'ost_pat_deadbeef',
+      ));
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toMatch(/read-only/);
+    });
   });
 
   describe('DELETE', () => {
@@ -554,6 +571,23 @@ describe('share-store-item', () => {
         'http://localhost/api/trees/s1',
       ));
       expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when authenticating with a PAT (PATs are read-only)', async () => {
+      mockSb = createMockSupabase({
+        patUserId: 'pat-owner-1',
+        ownerUser: { email: 'pat@example.com' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'pat-owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+      });
+      const res = await handler(makeRequest(
+        'DELETE',
+        'http://localhost/api/trees/s1',
+        undefined,
+        'ost_pat_deadbeef',
+      ));
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toMatch(/read-only/);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { parseMarkdownToTree } from '@ost-builder/shared';
-import { apiFetch, ApiError, type FetchLike } from '../http.js';
+import { apiFetch, toolErrorContent, type FetchLike } from '../http.js';
 import type { ResolvedAuth } from '../auth.js';
 
 type TreePayload = {
@@ -12,13 +12,6 @@ type TreePayload = {
 };
 
 const inputShape = { id: z.string().min(1, 'tree id is required') };
-
-function reauthMessage() {
-  return (
-    'Authentication failed. Your PAT may be revoked or expired — generate a new ' +
-    'one at https://mozost.netlify.app under Account → API tokens.'
-  );
-}
 
 export const getTreeJsonTool = (auth: ResolvedAuth, fetchImpl: FetchLike) => ({
   name: 'get_tree_json',
@@ -50,12 +43,7 @@ export const getTreeJsonTool = (auth: ResolvedAuth, fetchImpl: FetchLike) => ({
         content: [{ type: 'text' as const, text: JSON.stringify(body, null, 2) }],
       };
     } catch (e) {
-      const status = e instanceof ApiError ? e.status : undefined;
-      const message = status === 401 ? reauthMessage() : e instanceof Error ? e.message : String(e);
-      return {
-        content: [{ type: 'text' as const, text: message }],
-        isError: true,
-      };
+      return toolErrorContent(e);
     }
   },
 });
