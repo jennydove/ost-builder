@@ -6,7 +6,7 @@ import { listTreesTool } from './tools/listTrees.js';
 import { getTreeTool } from './tools/getTree.js';
 import { getTreeJsonTool } from './tools/getTreeJson.js';
 
-export const SERVER_NAME = 'ost-builder-mcp';
+export const SERVER_NAME = 'tree-mcp';
 export const SERVER_VERSION = '0.1.0';
 
 export interface CreateServerDeps {

@@ -1,10 +1,10 @@
 {
-  "name": "ost-builder-mcp",
+  "name": "tree-mcp",
   "version": "0.1.0",
-  "description": "MCP server for OST Builder — read-only access to your Opportunity Solution Trees from any MCP client.",
+  "description": "MCP server for tree.prodoperationscoach.com — read-only access to your trees from any MCP client.",
   "type": "module",
   "bin": {
-    "ost-builder-mcp": "dist/index.js"
+    "tree-mcp": "dist/index.js"
   },
   "files": [
     "dist/**",
@@ -40,7 +40,7 @@
     "discovery"
   ],
   "license": "MIT",
-  "homepage": "https://ost-builder.trinixlabs.dev/",
+  "homepage": "https://tree.prodoperationscoach.com/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jennydove/ost-builder.git"
