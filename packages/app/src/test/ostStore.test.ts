@@ -84,6 +84,27 @@ describe('ostStore', () => {
       expect(s.selectedCardId).toBeNull();
       expect(s.editingCardId).toBeNull();
     });
+
+    it('preserves selection state when payload matches current state', () => {
+      const before = getState();
+      const treeBefore = before.tree;
+      const firstCardId = Object.keys(treeBefore.cards)[0];
+      useOSTStore.setState({ selectedCardId: firstCardId, editingCardId: firstCardId });
+      getState().loadFromStoredShare({
+        markdown: before.markdown,
+        name: before.projectName,
+        settings: {
+          layoutDirection: before.layoutDirection,
+          experimentLayout: before.experimentLayout,
+          viewDensity: before.viewDensity,
+        },
+        collapsedIds: before.collapsedCardIds,
+      });
+      const after = getState();
+      expect(after.selectedCardId).toBe(firstCardId);
+      expect(after.editingCardId).toBe(firstCardId);
+      expect(after.tree).toBe(treeBefore);
+    });
   });
 
   describe('loadFromShareLink', () => {

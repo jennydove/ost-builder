@@ -167,15 +167,34 @@ export const createTreeSlice: StateCreator<OSTStore, [], [], TreeSlice> = (set, 
       const rawMarkdown = input.markdown || '';
       const nextName = input.name || defaultProjectName;
       const nextMarkdown = applyProjectNameToMarkdown(rawMarkdown, nextName);
+      const state = get();
+      const nextLayoutDirection = input.settings?.layoutDirection ?? state.layoutDirection;
+      const nextExperimentLayout = input.settings?.experimentLayout ?? state.experimentLayout;
+      const nextViewDensity = input.settings?.viewDensity ?? state.viewDensity;
+      const nextCollapsedIds = input.collapsedIds ?? [];
+
+      const sameMarkdown = nextMarkdown === state.markdown;
+      const sameName = nextName === state.projectName;
+      const sameLayout =
+        nextLayoutDirection === state.layoutDirection &&
+        nextExperimentLayout === state.experimentLayout &&
+        nextViewDensity === state.viewDensity;
+      const sameCollapsed =
+        nextCollapsedIds.length === state.collapsedCardIds.length &&
+        nextCollapsedIds.every((id, i) => id === state.collapsedCardIds[i]);
+
+      if (sameMarkdown && sameName && sameLayout && sameCollapsed) {
+        return;
+      }
 
       set({
         markdown: nextMarkdown,
         tree: parseMarkdownToTree(nextMarkdown),
         projectName: nextName,
-        layoutDirection: input.settings?.layoutDirection ?? get().layoutDirection,
-        experimentLayout: input.settings?.experimentLayout ?? get().experimentLayout,
-        viewDensity: input.settings?.viewDensity ?? get().viewDensity,
-        collapsedCardIds: input.collapsedIds ?? [],
+        layoutDirection: nextLayoutDirection,
+        experimentLayout: nextExperimentLayout,
+        viewDensity: nextViewDensity,
+        collapsedCardIds: nextCollapsedIds,
         selectedCardId: null,
         editingCardId: null,
       });
