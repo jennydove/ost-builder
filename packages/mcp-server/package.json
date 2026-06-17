@@ -12,7 +12,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "npm run build",
@@ -20,10 +20,11 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@ost-builder/shared": "^0.4.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@ost-builder/shared": "^0.4.0",
+    "tsup": "^8.5.1",
     "vitest": "^4.0.18"
   },
   "engines": {
