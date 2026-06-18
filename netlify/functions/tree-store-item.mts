@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, getSupabaseAsUser, resolveAuthUser, resolveRole, type TreeRole } from './_shareUtils.mts';
+import { getSupabaseAsService, resolveAuthUser, resolveRole, withWriteAuth, type TreeRole } from './_shareUtils.mts';
 import { UpdateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -25,33 +25,34 @@ export default async (request: Request) => {
   const id = new URL(request.url).pathname.split('/').pop() ?? '';
   if (!id) return Response.json({ error: 'Missing id' }, { status: 400 });
 
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '');
   const supabase = getSupabaseAsService();
 
-  // Resolve user from token (optional for GET). Accepts Supabase JWTs and PATs.
-  let userId: string | null = null;
-  let userEmail: string | null = null;
-  if (token) {
-    const auth = await resolveAuthUser(supabase, token);
-    userId = auth?.userId ?? null;
-    userEmail = auth?.userEmail ?? null;
-  }
-
-  // Fetch share
-  const { data: share, error: fetchError } = await supabase
-    .from('trees')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (fetchError?.code === 'PGRST116' || !share) {
-    return Response.json({ error: 'Not found', reason: 'not_found' }, { status: 404 });
-  }
-  if (fetchError) return Response.json({ error: fetchError.message }, { status: 500 });
-
-  const role = await resolveRole(supabase, id, userId, share as Record<string, unknown>, userEmail);
-
   if (request.method === 'GET') {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+
+    // GET allows anonymous viewers on link-public shares — resolve auth
+    // lazily and don't require it up front.
+    let userId: string | null = null;
+    let userEmail: string | null = null;
+    if (token) {
+      const auth = await resolveAuthUser(supabase, token);
+      userId = auth?.userId ?? null;
+      userEmail = auth?.userEmail ?? null;
+    }
+
+    const { data: share, error: fetchError } = await supabase
+      .from('trees')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError?.code === 'PGRST116' || !share) {
+      return Response.json({ error: 'Not found', reason: 'not_found' }, { status: 404 });
+    }
+    if (fetchError) return Response.json({ error: fetchError.message }, { status: 500 });
+
+    const role = await resolveRole(supabase, id, userId, share as Record<string, unknown>, userEmail);
+
     if (!role) {
       if (!userId) {
         return Response.json({ error: 'Sign in to view this share', reason: 'auth_required' }, { status: 401 });
@@ -59,7 +60,6 @@ export default async (request: Request) => {
       return Response.json({ error: 'You do not have access to this share', reason: 'forbidden' }, { status: 403 });
     }
 
-    // Per-IP read throttle for anonymous; per-user for authenticated.
     const rateKey = userId
       ? `share:read:user:${userId}`
       : `share:read:ip:${request.headers.get('x-forwarded-for') ?? request.headers.get('x-nf-client-connection-ip') ?? 'unknown'}`;
@@ -69,64 +69,63 @@ export default async (request: Request) => {
     return Response.json(rowToPayload(share as Record<string, unknown>, role));
   }
 
-  // All write operations require auth and at least editor role
-  if (!userId) return Response.json({ error: 'Authentication required' }, { status: 401 });
-  // PATs are read-only. resolveAuthUser accepts them upstream so GET works,
-  // but write paths below need a real Supabase JWT to drive RLS via getSupabaseAsUser.
-  if (token?.startsWith('ost_pat_')) {
-    return Response.json({ error: 'PATs are read-only; sign in to make changes' }, { status: 403 });
-  }
-  if (!role || role === 'viewer') return Response.json({ error: 'Forbidden' }, { status: 403 });
-
   if (request.method === 'PATCH') {
-    const parsed = await parseJsonBody(request, UpdateShareBodySchema);
-    if (!parsed.ok) return parsed.response;
-    const body = parsed.data;
+    return withWriteAuth(supabase, request, id, async (ctx) => {
+      const parsed = await parseJsonBody(request, UpdateShareBodySchema);
+      if (!parsed.ok) return parsed.response;
+      const body = parsed.data;
 
-    if (body.markdown !== undefined) {
-      const sizeCheck = checkMarkdownSize(body.markdown);
-      if (!sizeCheck.ok) return sizeCheck.response;
-    }
+      if (body.markdown !== undefined) {
+        const sizeCheck = checkMarkdownSize(body.markdown);
+        if (!sizeCheck.ok) return sizeCheck.response;
+      }
 
-    const rl = await checkRateLimit(supabase, {
-      key: `share:update:${userId}`,
-      limit: 120,
-      windowSeconds: 60,
-    });
-    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+      const rl = await checkRateLimit(supabase, {
+        key: `share:update:${ctx.tokenId ?? ctx.userId}`,
+        limit: 120,
+        windowSeconds: 60,
+      });
+      if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (body.markdown !== undefined) updates.markdown = body.markdown;
-    if (body.name !== undefined) updates.name = body.name;
-    if (body.settings !== undefined) updates.settings = body.settings;
-    if (body.collapsedIds !== undefined) updates.collapsed_ids = body.collapsedIds;
-    // Only owner can change visibility
-    if (body.visibility !== undefined) {
-      if (role !== 'owner') return Response.json({ error: 'Only the owner can change visibility' }, { status: 403 });
-      updates.visibility = body.visibility;
-    }
+      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (body.markdown !== undefined) updates.markdown = body.markdown;
+      if (body.name !== undefined) updates.name = body.name;
+      if (body.settings !== undefined) updates.settings = body.settings;
+      if (body.collapsedIds !== undefined) updates.collapsed_ids = body.collapsedIds;
+      if (body.visibility !== undefined) {
+        if (ctx.role !== 'owner') {
+          return Response.json({ error: 'Only the owner can change visibility' }, { status: 403 });
+        }
+        updates.visibility = body.visibility;
+      }
 
-    const userSupabase = getSupabaseAsUser(token!);
-    const { data, error } = await userSupabase
-      .from('trees')
-      .update(updates)
-      .eq('id', id)
-      .select('id, visibility, updated_at')
-      .single();
+      const { data, error } = await supabase
+        .from('trees')
+        .update(updates)
+        .eq('id', id)
+        .select('id, visibility, updated_at')
+        .single();
 
-    if (error) return Response.json({ error: error.message }, { status: 500 });
-    return Response.json({
-      id: data.id,
-      visibility: data.visibility,
-      updatedAt: new Date(data.updated_at as string).getTime(),
+      if (error) return Response.json({ error: error.message }, { status: 500 });
+      return Response.json({
+        id: data.id,
+        visibility: data.visibility,
+        updatedAt: new Date(data.updated_at as string).getTime(),
+      });
     });
   }
 
   if (request.method === 'DELETE') {
-    if (role !== 'owner') return Response.json({ error: 'Only the owner can delete' }, { status: 403 });
-    const userSupabase = getSupabaseAsUser(token!);
-    await userSupabase.from('trees').delete().eq('id', id);
-    return new Response(null, { status: 204 });
+    return withWriteAuth(
+      supabase,
+      request,
+      id,
+      async () => {
+        await supabase.from('trees').delete().eq('id', id);
+        return new Response(null, { status: 204 });
+      },
+      { requireOwner: true },
+    );
   }
 
   return Response.json({ error: 'Method not allowed' }, { status: 405 });

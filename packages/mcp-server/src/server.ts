@@ -5,9 +5,12 @@ import type { FetchLike } from './http.js';
 import { listTreesTool } from './tools/listTrees.js';
 import { getTreeTool } from './tools/getTree.js';
 import { getTreeJsonTool } from './tools/getTreeJson.js';
+import { createTreeTool } from './tools/createTree.js';
+import { updateTreeTool } from './tools/updateTree.js';
+import { deleteTreeTool } from './tools/deleteTree.js';
 
 export const SERVER_NAME = 'tree-mcp';
-export const SERVER_VERSION = '0.1.0';
+export const SERVER_VERSION = '0.2.0';
 
 export interface CreateServerDeps {
   auth: ResolvedAuth;
@@ -21,6 +24,9 @@ export function createServer({ auth, fetchImpl = fetch }: CreateServerDeps): Mcp
     listTreesTool(auth, fetchImpl),
     getTreeTool(auth, fetchImpl),
     getTreeJsonTool(auth, fetchImpl),
+    createTreeTool(auth, fetchImpl),
+    updateTreeTool(auth, fetchImpl),
+    deleteTreeTool(auth, fetchImpl),
   ] as const;
 
   for (const tool of tools) {

@@ -316,6 +316,38 @@ describe('share-store', () => {
       ));
       expect(res.status).toBe(401);
     });
+
+    it('creates share when authenticating with a PAT', async () => {
+      mockSb = createMockSupabase({
+        patUserId: 'pat-owner-1',
+        ownerUser: { email: 'pat@example.com' },
+        insertedShare: { id: 'new-share-pat' },
+      });
+      const res = await handler(makeRequest(
+        'POST',
+        'http://localhost/api/trees',
+        { markdown: '# From PAT', name: 'PAT-created' },
+        'ost_pat_deadbeef',
+      ));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.id).toBe('new-share-pat');
+    });
+
+    it('rejects body containing owner_id (strict schema)', async () => {
+      // Defense in depth: owner_id is always taken from the resolved auth in
+      // the handler, never from the body. The strict zod schema also rejects
+      // unknown fields up-front, so a spoofing attempt fails at validation
+      // before reaching the insert.
+      mockSb = createMockSupabase({ user: USER, insertedShare: { id: 'should-not-create' } });
+      const res = await handler(makeRequest(
+        'POST',
+        'http://localhost/api/trees',
+        { markdown: '# Test', owner_id: 'attacker-id' },
+        VALID_TOKEN,
+      ));
+      expect(res.status).toBe(400);
+    });
   });
 
   describe('GET (list shares)', () => {
@@ -514,11 +546,32 @@ describe('share-store-item', () => {
       expect(res.status).toBe(401);
     });
 
-    it('returns 403 when authenticating with a PAT (PATs are read-only)', async () => {
+    it('allows PAT owner to update', async () => {
       mockSb = createMockSupabase({
         patUserId: 'pat-owner-1',
         ownerUser: { email: 'pat@example.com' },
         share: { id: 's1', visibility: 'link-public', owner_id: 'pat-owner-1', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        updatedShare: { id: 's1', visibility: 'link-public', updated_at: '2026-01-03T00:00:00Z' },
+      });
+      const res = await handler(makeRequest(
+        'PATCH',
+        'http://localhost/api/trees/s1',
+        { markdown: '# Updated via PAT' },
+        'ost_pat_deadbeef',
+      ));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.id).toBe('s1');
+    });
+
+    it('returns 403 for PAT with viewer role', async () => {
+      // PAT-owned user is not the tree owner and has no member row → resolves
+      // to viewer on link-public; write is denied.
+      mockSb = createMockSupabase({
+        patUserId: 'pat-stranger-1',
+        ownerUser: { email: 'stranger@example.com' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'someone-else', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        memberRole: null,
       });
       const res = await handler(makeRequest(
         'PATCH',
@@ -527,8 +580,6 @@ describe('share-store-item', () => {
         'ost_pat_deadbeef',
       ));
       expect(res.status).toBe(403);
-      const json = await res.json();
-      expect(json.error).toMatch(/read-only/);
     });
   });
 
@@ -573,7 +624,7 @@ describe('share-store-item', () => {
       expect(res.status).toBe(401);
     });
 
-    it('returns 403 when authenticating with a PAT (PATs are read-only)', async () => {
+    it('allows PAT owner to delete', async () => {
       mockSb = createMockSupabase({
         patUserId: 'pat-owner-1',
         ownerUser: { email: 'pat@example.com' },
@@ -585,9 +636,23 @@ describe('share-store-item', () => {
         undefined,
         'ost_pat_deadbeef',
       ));
+      expect(res.status).toBe(204);
+    });
+
+    it('returns 403 for PAT editor (only owner can delete)', async () => {
+      mockSb = createMockSupabase({
+        patUserId: 'pat-editor-1',
+        ownerUser: { email: 'editor@example.com' },
+        share: { id: 's1', visibility: 'link-public', owner_id: 'someone-else', markdown: '# Test', name: 'Test', settings: null, collapsed_ids: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        memberRole: 'editor',
+      });
+      const res = await handler(makeRequest(
+        'DELETE',
+        'http://localhost/api/trees/s1',
+        undefined,
+        'ost_pat_deadbeef',
+      ));
       expect(res.status).toBe(403);
-      const json = await res.json();
-      expect(json.error).toMatch(/read-only/);
     });
   });
 });
