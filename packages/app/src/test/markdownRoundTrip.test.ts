@@ -124,6 +124,56 @@ describe('markdown round-trip', () => {
     }
   });
 
+  describe('per-card timestamp round-trip', () => {
+    it('preserves an existing card timestamp marker through parse → serialize → parse', () => {
+      const created = '2026-06-17T10:00:00.000Z';
+      const updated = '2026-06-18T15:32:00.000Z';
+      const md = [
+        '## [Outcome] Goal {#card1} <!--t c=' + created + ' u=' + updated + '-->',
+        '',
+      ].join('\n');
+
+      const tree1 = parseMarkdownToTree(md);
+      expect(new Date(tree1.cards.card1.createdAt).toISOString()).toBe(created);
+      expect(new Date(tree1.cards.card1.updatedAt).toISOString()).toBe(updated);
+
+      const md2 = serializeTreeToMarkdown(tree1);
+      const tree2 = parseMarkdownToTree(md2);
+      expect(new Date(tree2.cards.card1.createdAt).toISOString()).toBe(created);
+      expect(new Date(tree2.cards.card1.updatedAt).toISOString()).toBe(updated);
+    });
+
+    it('preserves status when a timestamp marker is present (status regex anchored at end)', () => {
+      const md = [
+        '## [Outcome] Goal {#card1} @on-track <!--t c=2026-06-17T10:00:00.000Z u=2026-06-18T15:32:00.000Z-->',
+        '',
+      ].join('\n');
+      const tree = parseMarkdownToTree(md);
+      expect(tree.cards.card1.status).toBe('on-track');
+      expect(tree.cards.card1.title).toBe('Goal');
+    });
+
+    it('writes a timestamp marker on serialization', () => {
+      const tree = parseMarkdownToTree('## [Outcome] Goal {#card1}');
+      const md = serializeTreeToMarkdown(tree);
+      expect(md).toMatch(/<!--t c=\S+ u=\S+-->/);
+    });
+
+    it('parses cards without a marker, defaulting to a usable Date', () => {
+      const tree = parseMarkdownToTree('## [Outcome] Goal {#card1}');
+      expect(tree.cards.card1.createdAt).toBeInstanceOf(Date);
+      expect(tree.cards.card1.updatedAt).toBeInstanceOf(Date);
+      expect(isNaN(new Date(tree.cards.card1.updatedAt).getTime())).toBe(false);
+    });
+
+    it('ignores a malformed marker without crashing', () => {
+      const md = '## [Outcome] Goal {#card1} <!--t garbage-->';
+      const tree = parseMarkdownToTree(md);
+      expect(tree.cards.card1.title).toBe('Goal');
+      expect(tree.cards.card1.createdAt).toBeInstanceOf(Date);
+    });
+  });
+
   describe('double round-trip idempotency', () => {
     it('serialize(parse(serialize(parse(md)))) === serialize(parse(md))', () => {
       const tree1 = parseMarkdownToTree(DEFAULT_OST_TEMPLATE);
