@@ -10,7 +10,7 @@ import { updateTreeTool } from './tools/updateTree.js';
 import { deleteTreeTool } from './tools/deleteTree.js';
 
 export const SERVER_NAME = 'tree-mcp';
-export const SERVER_VERSION = '0.2.0';
+export const SERVER_VERSION = '0.2.1';
 
 export interface CreateServerDeps {
   auth: ResolvedAuth;
