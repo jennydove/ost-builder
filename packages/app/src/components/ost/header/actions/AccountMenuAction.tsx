@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogOut, User, FolderOpen, Key } from 'lucide-react';
+import { LogOut, User, FolderOpen, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -99,8 +99,8 @@ export function AccountMenuAction() {
                 Manage shares
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Key className="w-4 h-4 mr-2" />
-                API tokens
+                <Sparkles className="w-4 h-4 mr-2" />
+                Talk to me with your AI
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void handleLogout()}>
                 <LogOut className="w-4 h-4 mr-2" />
