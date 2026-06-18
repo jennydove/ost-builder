@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { getSupabaseAsService, getSupabaseAsUser, resolveAuthUser } from './_shareUtils.mts';
+import { getSupabaseAsService, resolveAuthUser } from './_shareUtils.mts';
 import { CreateShareBodySchema, parseJsonBody } from './_validation.mts';
 import {
   checkMarkdownSize,
@@ -58,8 +58,8 @@ export default async (request: Request) => {
   if (!token) {
     return Response.json({ error: 'Authentication required' }, { status: 401 });
   }
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) {
+  const auth = await resolveAuthUser(supabase, token);
+  if (!auth) {
     return Response.json({ error: 'Invalid token' }, { status: 401 });
   }
 
@@ -71,14 +71,17 @@ export default async (request: Request) => {
   if (!sizeCheck.ok) return sizeCheck.response;
 
   const rl = await checkRateLimit(supabase, {
-    key: `share:create:${user.id}`,
+    key: `share:create:${auth.tokenId ?? auth.userId}`,
     limit: 60,
     windowSeconds: 60,
   });
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const userSupabase = getSupabaseAsUser(token);
-  const { data: share, error: shareError } = await userSupabase
+  // owner_id is forced from the resolved auth — never read from the request
+  // body. CreateShareBodySchema is .strict() so unknown fields are rejected
+  // at validation, but we still set the field explicitly here so this stays
+  // safe even if the schema is ever relaxed.
+  const { data: share, error: shareError } = await supabase
     .from('trees')
     .insert({
       markdown: body.markdown,
@@ -86,7 +89,7 @@ export default async (request: Request) => {
       visibility: body.visibility ?? 'link-public',
       settings: body.settings ?? null,
       collapsed_ids: body.collapsedIds ?? null,
-      owner_id: user.id,
+      owner_id: auth.userId,
     })
     .select('id')
     .single();
@@ -95,7 +98,7 @@ export default async (request: Request) => {
 
   const { error: memberError } = await supabase
     .from('tree_members')
-    .insert({ tree_id: share.id, user_id: user.id, role: 'owner', invited_by: null, invited_email: user.email });
+    .insert({ tree_id: share.id, user_id: auth.userId, role: 'owner', invited_by: null, invited_email: auth.userEmail });
 
   if (memberError) {
     await supabase.from('trees').delete().eq('id', share.id);

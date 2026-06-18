@@ -24,7 +24,9 @@ export async function resolvePatUser(
     .single();
   if (!data) return null;
   if (data.expires_at && new Date(data.expires_at as string) < new Date()) return null;
-  void supabase.from('cli_tokens').update({ last_used_at: new Date().toISOString() }).eq('id', data.id);
+  // Netlify function containers tear down after the response is sent. Awaiting
+  // here ensures the last_used_at write actually lands.
+  await supabase.from('cli_tokens').update({ last_used_at: new Date().toISOString() }).eq('id', data.id);
   return { userId: data.user_id as string, tokenId: data.id as string };
 }
 
@@ -36,10 +38,20 @@ export function getSupabaseAsUser(jwt: string) {
   });
 }
 
+export type ResolvedAuth = {
+  userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  // Set when the request was authenticated via a PAT. Used as a stable
+  // rate-limit key for PAT-driven writes so a noisy PAT doesn't share a bucket
+  // with the same user's browser session.
+  tokenId: string | null;
+};
+
 export async function resolveAuthUser(
   supabase: ReturnType<typeof getSupabaseAsService>,
   token: string | null,
-): Promise<{ userId: string; userName: string | null; userEmail: string | null } | null> {
+): Promise<ResolvedAuth | null> {
   if (!token) return null;
 
   if (token.startsWith('ost_pat_')) {
@@ -49,7 +61,7 @@ export async function resolveAuthUser(
     const meta = (data?.user?.user_metadata ?? {}) as Record<string, unknown>;
     const email = data?.user?.email ?? null;
     const name = (meta.full_name as string) || (meta.name as string) || email || null;
-    return { userId: pat.userId, userName: name, userEmail: email };
+    return { userId: pat.userId, userName: name, userEmail: email, tokenId: pat.tokenId };
   }
 
   const { data: { user } } = await supabase.auth.getUser(token);
@@ -57,7 +69,7 @@ export async function resolveAuthUser(
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const email = user.email ?? null;
   const name = (meta.full_name as string) || (meta.name as string) || email || null;
-  return { userId: user.id, userName: name, userEmail: email };
+  return { userId: user.id, userName: name, userEmail: email, tokenId: null };
 }
 
 // Lazy domain-based provisioning: when a user signs into a domain-restricted
@@ -182,4 +194,62 @@ export async function resolveRole(
   }
 
   return null;
+}
+
+// Single chokepoint for write-path auth on an existing tree. Wraps the
+// handler so callers can't accidentally skip the role check the way they
+// could with a freestanding helper. Inner handler receives the auth context,
+// the fetched share row, and the supabase client — no token/role bookkeeping
+// inside the handler.
+//
+// Rejected requests short-circuit with a Response; the handler never runs.
+// Used by PATCH and DELETE on /api/trees/:id. Create (POST /api/trees) does
+// not use this wrapper because there is no existing tree to role-check —
+// auth alone is sufficient, and the resolved userId is the *only* allowed
+// owner_id for the new row.
+export type WriteAuthContext = ResolvedAuth & {
+  role: TreeRole;
+  share: Record<string, unknown>;
+};
+
+export async function withWriteAuth(
+  supabase: ReturnType<typeof getSupabaseAsService>,
+  request: Request,
+  treeId: string,
+  handler: (ctx: WriteAuthContext) => Promise<Response>,
+  opts: { requireOwner?: boolean } = {},
+): Promise<Response> {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '') ?? null;
+  if (!token) return Response.json({ error: 'Authentication required' }, { status: 401 });
+
+  const auth = await resolveAuthUser(supabase, token);
+  if (!auth) return Response.json({ error: 'Invalid token' }, { status: 401 });
+
+  const { data: share, error: fetchError } = await supabase
+    .from('trees')
+    .select('*')
+    .eq('id', treeId)
+    .single();
+
+  if (fetchError?.code === 'PGRST116' || !share) {
+    return Response.json({ error: 'Not found', reason: 'not_found' }, { status: 404 });
+  }
+  if (fetchError) return Response.json({ error: fetchError.message }, { status: 500 });
+
+  const role = await resolveRole(
+    supabase,
+    treeId,
+    auth.userId,
+    share as Record<string, unknown>,
+    auth.userEmail,
+  );
+
+  if (!role || role === 'viewer') {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  if (opts.requireOwner && role !== 'owner') {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  return handler({ ...auth, role, share: share as Record<string, unknown> });
 }
