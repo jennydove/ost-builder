@@ -75,6 +75,8 @@ interface ParsedCard {
     current: number;
     target: number;
   };
+  createdAt: Date | null;
+  updatedAt: Date | null;
   level: number;
 }
 
@@ -120,6 +122,27 @@ function parseCardHeading(
     remaining = remaining.replace(parentMatch[0], '').trim();
   }
 
+  // Capture trailing timestamp comment if present (e.g. `<!--t c=2026-06-17T... u=2026-06-18T...-->`).
+  // Strip BEFORE the status regex, which is anchored at end-of-string and
+  // would otherwise miss `@status` followed by the comment.
+  let createdAt: Date | null = null;
+  let updatedAt: Date | null = null;
+  const tsMatch = remaining.match(/\s*<!--t\s+(.+?)-->\s*$/);
+  if (tsMatch) {
+    const params = tsMatch[1];
+    const cMatch = params.match(/c=(\S+)/);
+    const uMatch = params.match(/u=(\S+)/);
+    if (cMatch) {
+      const d = new Date(cMatch[1]);
+      if (!isNaN(d.getTime())) createdAt = d;
+    }
+    if (uMatch) {
+      const d = new Date(uMatch[1]);
+      if (!isNaN(d.getTime())) updatedAt = d;
+    }
+    remaining = remaining.replace(tsMatch[0], '').trim();
+  }
+
   // Extract status if present
   let status: CardStatus = 'none';
   const statusMatch = remaining.match(/@(on-track|at-risk|achieved|exploring|validated|prioritized|deprioritized|ideating|testing|dropped|planned|running|complete|next|done|none)$/i);
@@ -137,6 +160,8 @@ function parseCardHeading(
     type,
     title,
     status,
+    createdAt,
+    updatedAt,
   };
 }
 
@@ -190,6 +215,8 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
     metrics?: { start: number; current: number; target: number };
     inferredParentId: string | null;
     explicitParentId: string | null;
+    createdAt: Date | null;
+    updatedAt: Date | null;
   };
   const collected: Collected[] = [];
   const parentStack: { id: string; level: number }[] = [];
@@ -234,6 +261,8 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
       metrics,
       inferredParentId,
       explicitParentId: currentCard.explicitParentId,
+      createdAt: currentCard.createdAt,
+      updatedAt: currentCard.updatedAt,
     });
 
     parentStack.push({ id, level: currentCard.level });
@@ -266,6 +295,11 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
         ? c.explicitParentId
         : c.inferredParentId;
 
+    // Fall back to "now" when the markdown carries no timestamp marker.
+    // This preserves the long-standing default for legacy data; once a card
+    // is touched and re-serialized, a real marker is written and the lie
+    // resolves itself on the next load.
+    const now = new Date();
     const card: OSTCard = {
       id: c.id,
       type: c.type,
@@ -275,8 +309,8 @@ export function parseMarkdownToTree(markdown: string): OSTTree {
       parentId: resolvedParent,
       children: [],
       metrics: c.metrics,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: c.createdAt ?? now,
+      updatedAt: c.updatedAt ?? now,
     };
     tree.cards[c.id] = card;
   }
@@ -326,7 +360,13 @@ export function serializeTreeToMarkdown(tree: OSTTree, name?: string): string {
     const parentSuffix =
       card.parentId && card.parentId !== inferredParentId ? ` {^${card.parentId}}` : '';
     const statusSuffix = card.status && card.status !== 'none' ? ` @${card.status}` : '';
-    const heading = `${'#'.repeat(level)} ${prefix} ${card.title}${idSuffix}${parentSuffix}${statusSuffix}`;
+    // Persist per-card timestamps as a hidden comment so they survive the
+    // markdown round-trip. The parser strips this before extracting status.
+    const tsParts: string[] = [];
+    if (card.createdAt) tsParts.push(`c=${new Date(card.createdAt).toISOString()}`);
+    if (card.updatedAt) tsParts.push(`u=${new Date(card.updatedAt).toISOString()}`);
+    const tsSuffix = tsParts.length > 0 ? ` <!--t ${tsParts.join(' ')}-->` : '';
+    const heading = `${'#'.repeat(level)} ${prefix} ${card.title}${idSuffix}${parentSuffix}${statusSuffix}${tsSuffix}`;
 
     lines.push(heading);
 
