@@ -12,7 +12,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "npm --prefix ../.. -w @ost-builder/shared run build && tsup",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "npm run build",
