@@ -46,12 +46,23 @@ Restart Claude Code; the three tools should appear under `/mcp`.
 
 PATs in `~/.claude.json` are stored in plaintext. Rotate at the web app if leaked.
 
+## Releasing
+
+Always run `npm run release` from this directory — never `npm publish` directly.
+
+A global `ignore-scripts=true` in `~/.npmrc` (a common supply-chain hardening) makes
+npm skip the `prepack` lifecycle hook, which silently ships a stale `dist/`. The
+`release` script does an explicit `npm run build && npm publish` so the bundle is
+guaranteed fresh regardless of npm config.
+
 ## Manual smoke checklist
 
 After publishing or `npm link`:
 
-1. Restart Claude Code; confirm three tools appear in `/mcp`.
+1. Restart Claude Code; confirm six tools appear in `/mcp` — `list_trees`, `get_tree`, `get_tree_json`, `create_tree`, `update_tree`, `delete_tree`.
 2. Ask: *"List my trees."* → should call `list_trees`.
 3. Ask: *"Show me the markdown for tree `<id>`."* → `get_tree`.
 4. Ask: *"How many opportunities are in tree `<id>`?"* → `get_tree_json` + reasoning.
+5. Ask: *"Create a tree with one outcome about activation."* → `create_tree`.
+6. Ask: *"Add an opportunity under that outcome."* → `update_tree`.
 5. Auth failure: unset `OST_PAT`, remove the session file — server should exit with a clear stderr message.

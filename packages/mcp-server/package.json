@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepack": "npm run build",
-    "release": "npm run prepack && npx np --branch main"
+    "release": "npm run build && npm publish"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
