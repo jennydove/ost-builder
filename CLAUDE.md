@@ -43,6 +43,7 @@ OST (Opportunity Solution Tree) builder — React + Vite frontend, Netlify Funct
 - `packages/app` — React frontend
 - `packages/shared` — shared types + markdown serialization
 - `packages/cli` — npm CLI tool (PAT-based auth, library list/upload/download — see `docs/cli.md`)
+- `packages/mcp-server` — published as `tree-mcp` on npm. Read + write tools over PATs for any MCP client (Claude Code, Claude Desktop, Cursor). To publish: `npm run release` from this directory, never bare `npm publish`. See the package README for the release flow and why it matters under `ignore-scripts=true`.
 - `netlify/functions/` — live backend (Supabase JWT auth, RLS defense-in-depth)
 
 ## Current Work Context
