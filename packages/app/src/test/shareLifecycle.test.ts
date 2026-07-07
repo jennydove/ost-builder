@@ -21,6 +21,9 @@ interface MockSupabaseConfig {
   shareError?: { code: string; message: string } | null;
   memberRole?: string | null;
   shares?: MockRow[];
+  // Rows returned by from('tree_members').select('role, tree:trees!inner(...)').eq('user_id', ...)
+  // for the list_trees shared-memberships query. Each row is { role, tree: {...} }.
+  sharedMemberships?: MockRow[];
   insertedShare?: MockRow | null;
   insertMemberError?: { message: string } | null;
   updatedShare?: MockRow | null;
@@ -40,6 +43,7 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
     shareError = null,
     memberRole = null,
     shares = [],
+    sharedMemberships = [],
     insertedShare = null,
     insertMemberError = null,
     updatedShare = null,
@@ -70,23 +74,31 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
       if (table === 'trees') {
         return {
           select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockImplementation((_col: string, _val: unknown) => ({
-              single: vi.fn().mockResolvedValue(
-                shareError
-                  ? { data: null, error: shareError }
-                  : share
-                    ? { data: share, error: null }
-                    : { data: null, error: { code: 'PGRST116', message: 'Not found' } },
-              ),
-              order: vi.fn().mockReturnValue({
+            eq: vi.fn().mockImplementation((_col: string, _val: unknown) => {
+              // `order()` is awaited directly by list_trees (no range()); make it
+              // thenable so `await ...order(...)` resolves to `{ data: shares }`,
+              // while still exposing `.range()` for any legacy callers.
+              const orderBuilder: Record<string, any> = {
                 range: vi.fn().mockResolvedValue({ data: shares, error: null }),
-              }),
-              eq: vi.fn().mockReturnValue({
+                then: (resolve: (v: unknown) => void) =>
+                  resolve({ data: shares, error: null }),
+              };
+              return {
                 single: vi.fn().mockResolvedValue(
-                  share ? { data: share, error: null } : { data: null, error: { code: 'PGRST116' } },
+                  shareError
+                    ? { data: null, error: shareError }
+                    : share
+                      ? { data: share, error: null }
+                      : { data: null, error: { code: 'PGRST116', message: 'Not found' } },
                 ),
-              }),
-            })),
+                order: vi.fn().mockReturnValue(orderBuilder),
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue(
+                    share ? { data: share, error: null } : { data: null, error: { code: 'PGRST116' } },
+                  ),
+                }),
+              };
+            }),
           }),
           insert: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
@@ -125,6 +137,11 @@ function createMockSupabase(config: MockSupabaseConfig = {}) {
           memberBuilder[m] = vi.fn().mockReturnValue(memberBuilder);
         }
         memberBuilder.single = memberTerminal;
+        // list_trees awaits the builder directly for the memberships-with-joined-tree
+        // query; make it thenable so `await ...select(...).eq('user_id', ...)` resolves.
+        // Existing callers still use `.single()` and are unaffected.
+        memberBuilder.then = (resolve: (v: unknown) => void) =>
+          resolve({ data: sharedMemberships, error: null });
 
         return {
           select: vi.fn().mockReturnValue(memberBuilder),
@@ -368,6 +385,89 @@ describe('share-store', () => {
       expect(res.status).toBe(200);
       expect(json.items).toHaveLength(1);
       expect(json.items[0].id).toBe('s1');
+      expect(json.items[0].role).toBe('owner');
+    });
+
+    it('includes trees shared with the user with their role', async () => {
+      mockSb = createMockSupabase({
+        user: USER,
+        shares: [
+          { id: 'own-1', name: 'Owned', visibility: 'link-public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        ],
+        sharedMemberships: [
+          {
+            role: 'editor',
+            tree: { id: 'shared-1', name: 'Shared with me (editor)', visibility: 'link-public', created_at: '2026-02-01T00:00:00Z', updated_at: '2026-02-05T00:00:00Z' },
+          },
+          {
+            role: 'viewer',
+            tree: { id: 'shared-2', name: 'Shared with me (viewer)', visibility: 'link-public', created_at: '2026-02-10T00:00:00Z', updated_at: '2026-02-10T00:00:00Z' },
+          },
+        ],
+      });
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees', undefined, VALID_TOKEN));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.total).toBe(3);
+      // Sort is updated_at desc: shared-2, shared-1, own-1
+      expect(json.items.map((i: { id: string }) => i.id)).toEqual(['shared-2', 'shared-1', 'own-1']);
+      const byId = Object.fromEntries(json.items.map((i: { id: string; role: string }) => [i.id, i.role]));
+      expect(byId).toEqual({ 'own-1': 'owner', 'shared-1': 'editor', 'shared-2': 'viewer' });
+    });
+
+    it('prefers owner role when the same tree appears in both queries', async () => {
+      mockSb = createMockSupabase({
+        user: USER,
+        shares: [
+          { id: 't1', name: 'Owned', visibility: 'link-public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        ],
+        sharedMemberships: [
+          {
+            role: 'owner',
+            tree: { id: 't1', name: 'Owned', visibility: 'link-public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+          },
+        ],
+      });
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees', undefined, VALID_TOKEN));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.items).toHaveLength(1);
+      expect(json.items[0].role).toBe('owner');
+    });
+
+    it('scope=owned excludes shared memberships', async () => {
+      mockSb = createMockSupabase({
+        user: USER,
+        shares: [
+          { id: 'own-1', name: 'Owned', visibility: 'link-public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        ],
+        sharedMemberships: [
+          { role: 'editor', tree: { id: 'shared-1', name: 'Shared', visibility: 'link-public', created_at: '2026-02-01T00:00:00Z', updated_at: '2026-02-05T00:00:00Z' } },
+        ],
+      });
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees?scope=owned', undefined, VALID_TOKEN));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.items).toHaveLength(1);
+      expect(json.items[0].id).toBe('own-1');
+    });
+
+    it('scope=shared excludes owned trees', async () => {
+      mockSb = createMockSupabase({
+        user: USER,
+        shares: [
+          { id: 'own-1', name: 'Owned', visibility: 'link-public', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-02T00:00:00Z' },
+        ],
+        sharedMemberships: [
+          { role: 'editor', tree: { id: 'shared-1', name: 'Shared', visibility: 'link-public', created_at: '2026-02-01T00:00:00Z', updated_at: '2026-02-05T00:00:00Z' } },
+        ],
+      });
+      const res = await handler(makeRequest('GET', 'http://localhost/api/trees?scope=shared', undefined, VALID_TOKEN));
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json.items).toHaveLength(1);
+      expect(json.items[0].id).toBe('shared-1');
+      expect(json.items[0].role).toBe('editor');
     });
 
     it('returns 401 without token', async () => {
@@ -394,6 +494,7 @@ describe('share-store', () => {
       expect(res.status).toBe(200);
       expect(json.items).toHaveLength(1);
       expect(json.items[0].id).toBe('s-pat');
+      expect(json.items[0].role).toBe('owner');
     });
 
     it('returns 401 for unknown ost_pat_ token', async () => {
