@@ -6,6 +6,7 @@ type ListItem = {
   id: string;
   name: string | null;
   visibility: string;
+  role: 'owner' | 'editor' | 'viewer';
   createdAt: number;
   updatedAt: number;
   link: string;
@@ -22,8 +23,10 @@ export const listTreesTool = (auth: ResolvedAuth, fetchImpl: FetchLike) => ({
   name: 'list_trees',
   config: {
     description:
-      "List all Opportunity Solution Trees in the authenticated user's library. " +
-      'Returns id, name, visibility, createdAt, updatedAt, and a full url for each tree. ' +
+      'List all Opportunity Solution Trees the authenticated user can access — ' +
+      'both owned trees and trees shared with them. ' +
+      'Returns id, name, visibility, role (owner|editor|viewer), createdAt, updatedAt, and a full url for each tree. ' +
+      'Only owner and editor roles can call update_tree or delete_tree. ' +
       'Call this first to discover tree IDs.',
     inputSchema: {} as Record<string, z.ZodTypeAny>,
   },

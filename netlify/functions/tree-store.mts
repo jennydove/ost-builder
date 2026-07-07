@@ -26,29 +26,70 @@ export default async (request: Request) => {
     const url = new URL(request.url);
     const page = Math.max(1, Number(url.searchParams.get('page') || '1'));
     const pageSize = Math.min(100, Number(url.searchParams.get('pageSize') || '50'));
+    const scopeParam = (url.searchParams.get('scope') || 'all').toLowerCase();
+    const scope: 'owned' | 'shared' | 'all' =
+      scopeParam === 'owned' || scopeParam === 'shared' ? scopeParam : 'all';
+
+    type Row = {
+      id: string;
+      name: string | null;
+      visibility: string;
+      created_at: string;
+      updated_at: string;
+      role: 'owner' | 'editor' | 'viewer';
+    };
+    const byId = new Map<string, Row>();
+
+    if (scope !== 'shared') {
+      const { data: owned, error: ownedError } = await supabase
+        .from('trees')
+        .select('id, name, visibility, created_at, updated_at')
+        .eq('owner_id', auth.userId)
+        .order('updated_at', { ascending: false });
+      if (ownedError) return Response.json({ error: ownedError.message }, { status: 500 });
+      for (const row of owned ?? []) {
+        byId.set(row.id as string, { ...(row as Omit<Row, 'role'>), role: 'owner' });
+      }
+    }
+
+    if (scope !== 'owned') {
+      // Trees where caller has an accepted membership (user_id is set — pending
+      // email-only invites don't count until claimed).
+      const { data: memberships, error: memberError } = await supabase
+        .from('tree_members')
+        .select('role, tree:trees!inner(id, name, visibility, created_at, updated_at)')
+        .eq('user_id', auth.userId);
+      if (memberError) return Response.json({ error: memberError.message }, { status: 500 });
+      for (const m of (memberships ?? []) as Array<{
+        role: 'owner' | 'editor' | 'viewer';
+        tree: Omit<Row, 'role'> | null;
+      }>) {
+        if (!m.tree) continue;
+        // Owner query already populated with role='owner'; don't downgrade it.
+        if (byId.has(m.tree.id)) continue;
+        byId.set(m.tree.id, { ...m.tree, role: m.role });
+      }
+    }
+
+    const merged = Array.from(byId.values()).sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+    );
+
+    const total = merged.length;
     const from = (page - 1) * pageSize;
+    const pageRows = merged.slice(from, from + pageSize);
 
-    // Service-role query filtered by owner_id — auth is already validated above,
-    // and PATs can't act as user-context (not a Supabase JWT).
-    const { data: rows, error: listError } = await supabase
-      .from('trees')
-      .select('id, name, visibility, created_at, updated_at')
-      .eq('owner_id', auth.userId)
-      .order('updated_at', { ascending: false })
-      .range(from, from + pageSize - 1);
-
-    if (listError) return Response.json({ error: listError.message }, { status: 500 });
-
-    const items = (rows ?? []).map(row => ({
+    const items = pageRows.map(row => ({
       id: row.id,
       name: row.name ?? null,
       visibility: row.visibility,
-      createdAt: new Date(row.created_at as string).getTime(),
-      updatedAt: new Date(row.updated_at as string).getTime(),
+      role: row.role,
+      createdAt: new Date(row.created_at).getTime(),
+      updatedAt: new Date(row.updated_at).getTime(),
       link: `/s/${row.id}`,
     }));
 
-    return Response.json({ items, page, pageSize, total: items.length });
+    return Response.json({ items, page, pageSize, total });
   }
 
   if (request.method !== 'POST') {
