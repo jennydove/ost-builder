@@ -132,7 +132,9 @@ export default function Settings() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-xs space-y-4 text-center">
           <p className="text-muted-foreground">Sign in to set up AI access.</p>
-          <SignInButtons redirectTo={`${window.location.origin}/settings`} />
+          {supabaseConfigured && (
+            <SignInButtons redirectTo={`${window.location.origin}/settings`} />
+          )}
           <Button variant="ghost" onClick={() => navigate('/')}>Back to app</Button>
         </div>
       </div>

@@ -1,13 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
-const { getSession, onAuthStateChange } = vi.hoisted(() => ({
-  getSession: vi.fn(),
-  onAuthStateChange: vi.fn(() => ({
-    data: { subscription: { unsubscribe: () => {} } },
-  })),
-}));
+type AuthCallback = (event: AuthChangeEvent, session: Session | null) => void;
+
+const { getSession, onAuthStateChange, authCallbacks } = vi.hoisted(() => {
+  const callbacks: AuthCallback[] = [];
+  return {
+    authCallbacks: callbacks,
+    getSession: vi.fn(),
+    onAuthStateChange: vi.fn((cb: AuthCallback) => {
+      callbacks.push(cb);
+      return { data: { subscription: { unsubscribe: () => {} } } };
+    }),
+  };
+});
 
 vi.mock('@/lib/supabaseClient', () => ({
   supabaseConfigured: true,
@@ -24,8 +32,20 @@ function renderMenu() {
   );
 }
 
+const SESSION = {
+  user: { id: 'user-1', email: 'jenny@example.com', user_metadata: {} },
+} as unknown as Session;
+
+function emit(event: AuthChangeEvent, session: Session | null) {
+  return act(async () => {
+    for (const cb of authCallbacks) cb(event, session);
+    await Promise.resolve();
+  });
+}
+
 describe('AccountMenuAction signed-out affordance', () => {
   beforeEach(() => {
+    authCallbacks.length = 0;
     getSession.mockResolvedValue({ data: { session: null } });
   });
   afterEach(() => {
@@ -63,5 +83,20 @@ describe('AccountMenuAction signed-out affordance', () => {
       expect(screen.getByRole('button', { name: /account menu/i })).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: /^sign in$/i })).not.toBeInTheDocument();
+  });
+
+  it('restores the sign-in button when the user signs out', async () => {
+    getSession.mockResolvedValue({ data: { session: SESSION } });
+    renderMenu();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /account menu/i })).toBeInTheDocument();
+    });
+
+    await emit('SIGNED_OUT', null);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /account menu/i })).not.toBeInTheDocument();
   });
 });

@@ -41,6 +41,10 @@ export function SignInDialogButton({
     return () => subscription.unsubscribe();
   }, []);
 
+  // supabase is null when the env vars are absent; a button that throws on
+  // click is worse than no button.
+  if (!supabaseConfigured) return null;
+
   return (
     <>
       <Button variant={variant} size={size} className={className} onClick={() => setOpen(true)}>
