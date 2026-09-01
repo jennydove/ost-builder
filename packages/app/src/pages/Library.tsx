@@ -44,6 +44,7 @@ import {
   upsertShareSnapshot,
   type LocalSnapshot,
 } from '@/lib/localSnapshots';
+import { SignInDialogButton } from '@/components/auth/SignInDialogButton';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { useOSTStore } from '@/store/ostStore';
@@ -187,6 +188,13 @@ export default function Library() {
 
   useEffect(() => {
     void load();
+
+    if (!supabaseConfigured) return;
+    // Signing in from this page should pull the cloud library in without a reload.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) void load();
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleCopy = async (text: string, description: string) => {
@@ -391,11 +399,19 @@ export default function Library() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {cloudUser && (
+            {cloudUser ? (
               <div className="flex items-center gap-1 text-xs text-emerald-600">
                 <Cloud className="w-3 h-3" />
                 Cloud
               </div>
+            ) : (
+              supabaseConfigured && (
+                <SignInDialogButton
+                  variant="outline"
+                  size="default"
+                  redirectTo={`${window.location.origin}/library`}
+                />
+              )
             )}
             <Button variant="outline" onClick={() => navigate('/')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
