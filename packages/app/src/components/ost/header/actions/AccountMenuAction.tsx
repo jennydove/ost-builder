@@ -11,22 +11,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import { toast } from '@/components/ui/use-toast';
-import { SignInButtons } from '@/components/auth/SignInButtons';
+import { SignInDialogButton } from '@/components/auth/SignInDialogButton';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export function AccountMenuAction() {
   const navigate = useNavigate();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [signInOpen, setSignInOpen] = useState(false);
 
   const initials = useMemo(() => {
     const name = (user?.user_metadata.full_name as string) || (user?.user_metadata.name as string) || user?.email || '';
@@ -46,7 +39,6 @@ export function AccountMenuAction() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session) setSignInOpen(false);
       setLoading(false);
     });
 
@@ -65,60 +57,44 @@ export function AccountMenuAction() {
 
   if (!supabaseConfigured || loading) return null;
 
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Account menu">
-            <Avatar className="h-8 w-8 border border-border">
-              {user?.user_metadata.avatar_url ? (
-                <AvatarImage src={user.user_metadata.avatar_url as string} alt="User avatar" />
-              ) : null}
-              <AvatarFallback className="text-xs">
-                {user ? initials || <User className="w-4 h-4" /> : <User className="w-4 h-4" />}
-              </AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>
-            {user
-              ? ((user.user_metadata.full_name as string) || user.email || 'Signed in')
-              : 'Not signed in'}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {!user ? (
-            <DropdownMenuItem onClick={() => setSignInOpen(true)}>
-              <User className="w-4 h-4 mr-2" />
-              Sign in
-            </DropdownMenuItem>
-          ) : (
-            <>
-              <DropdownMenuItem onClick={() => navigate('/library')}>
-                <FolderOpen className="w-4 h-4 mr-2" />
-                Manage shares
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Talk to me with your AI
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void handleLogout()}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign out
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+  // Signed out: show an explicit, labelled "Sign in" button. A bare avatar
+  // icon reads as decoration, so there was no obvious way in.
+  if (!user) {
+    return <SignInDialogButton />;
+  }
 
-      <Dialog open={signInOpen} onOpenChange={setSignInOpen}>
-        <DialogContent className="max-w-xs">
-          <DialogHeader>
-            <DialogTitle>Sign in</DialogTitle>
-          </DialogHeader>
-          <SignInButtons />
-        </DialogContent>
-      </Dialog>
-    </>
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Account menu">
+          <Avatar className="h-8 w-8 border border-border">
+            {user.user_metadata.avatar_url ? (
+              <AvatarImage src={user.user_metadata.avatar_url as string} alt="User avatar" />
+            ) : null}
+            <AvatarFallback className="text-xs">
+              {initials || <User className="w-4 h-4" />}
+            </AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          {(user.user_metadata.full_name as string) || user.email || 'Signed in'}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => navigate('/library')}>
+          <FolderOpen className="w-4 h-4 mr-2" />
+          Manage shares
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate('/settings')}>
+          <Sparkles className="w-4 h-4 mr-2" />
+          Talk to me with your AI
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void handleLogout()}>
+          <LogOut className="w-4 h-4 mr-2" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

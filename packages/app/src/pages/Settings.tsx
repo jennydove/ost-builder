@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
+import { SignInButtons } from '@/components/auth/SignInButtons';
 import { toast } from '@/components/ui/use-toast';
 import type { User } from '@supabase/supabase-js';
 
@@ -128,10 +129,13 @@ export default function Settings() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-xs space-y-4 text-center">
           <p className="text-muted-foreground">Sign in to set up AI access.</p>
-          <Button onClick={() => navigate('/')}>Back to app</Button>
+          {supabaseConfigured && (
+            <SignInButtons redirectTo={`${window.location.origin}/settings`} />
+          )}
+          <Button variant="ghost" onClick={() => navigate('/')}>Back to app</Button>
         </div>
       </div>
     );
