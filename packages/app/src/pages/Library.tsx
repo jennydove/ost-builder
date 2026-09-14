@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { encodeMarkdownToUrlFragment } from '@ost-builder/shared';
 import {
@@ -44,6 +44,7 @@ import {
   upsertShareSnapshot,
   type LocalSnapshot,
 } from '@/lib/localSnapshots';
+import { SignInDialogButton } from '@/components/auth/SignInDialogButton';
 import { supabase, supabaseConfigured } from '@/lib/supabaseClient';
 import { toast } from '@/components/ui/use-toast';
 import { useOSTStore } from '@/store/ostStore';
@@ -123,9 +124,12 @@ export default function Library() {
   const [pendingDeleteItem, setPendingDeleteItem] = useState<LocalSnapshot | null>(null);
   const [activeSourceKey, setActiveSourceKey] = useState<string | null>(null);
   const [cloudUser, setCloudUser] = useState<User | null>(null);
+  // undefined = the first load has not resolved a session yet.
+  const authUserIdRef = useRef<string | null | undefined>(undefined);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) setLoading(true);
     try {
       const localItems = listLocalSnapshots();
       setActiveSourceKey(getActiveLocalSnapshotSourceKey());
@@ -136,6 +140,7 @@ export default function Library() {
       }
 
       const { data: { session } } = await supabase.auth.getSession();
+      authUserIdRef.current = session?.user.id ?? null;
       setCloudUser(session?.user ?? null);
 
       if (!session) {
@@ -181,12 +186,34 @@ export default function Library() {
       // Re-read local items (now includes newly created cloud snapshots)
       setItems(listLocalSnapshots());
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     void load();
+
+    if (!supabaseConfigured) return;
+    // Signing in or out from this page should re-read the library without a
+    // manual refresh. onAuthStateChange fires for far more than that, though:
+    // auth-js emits INITIAL_SESSION to every new subscriber, SIGNED_IN again on
+    // every hidden->visible tab transition, and TOKEN_REFRESHED hourly. Reload
+    // only when the signed-in identity actually changes, and do it silently so
+    // a background token refresh never blanks the page out from under an edit.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user.id ?? null;
+      if (authUserIdRef.current === undefined) {
+        // The mount load is still resolving; it will pick up this session itself.
+        authUserIdRef.current = nextUserId;
+        return;
+      }
+      if (nextUserId === authUserIdRef.current) return;
+      authUserIdRef.current = nextUserId;
+      // load() calls getSession(); Supabase documents calling its own API from
+      // inside this callback as a deadlock risk, so defer off the callback.
+      setTimeout(() => { void load({ silent: true }); }, 0);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleCopy = async (text: string, description: string) => {
@@ -391,11 +418,19 @@ export default function Library() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {cloudUser && (
+            {cloudUser ? (
               <div className="flex items-center gap-1 text-xs text-emerald-600">
                 <Cloud className="w-3 h-3" />
                 Cloud
               </div>
+            ) : (
+              supabaseConfigured && (
+                <SignInDialogButton
+                  variant="outline"
+                  size="default"
+                  redirectTo={`${window.location.origin}/library`}
+                />
+              )
             )}
             <Button variant="outline" onClick={() => navigate('/')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
